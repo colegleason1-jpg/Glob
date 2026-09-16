@@ -1,0 +1,26 @@
+# Runtime dependencies, installed from the repository root.
+#
+# The first line is the important one: it installs `engine/` as a real package, so
+# `import scrcae` resolves without anyone setting PYTHONPATH. Streamlit Community Cloud
+# has no way to set PYTHONPATH, so a repo that depends on it cannot deploy.
+./engine
+
+# Pinned to the versions the 700 tests actually ran against.
+#
+# These require **Python 3.12 or newer**. Checked, not assumed: resolving this set against
+# 3.11 fails because numpy 2.5.2 publishes no 3.11 wheel. Selecting 3.11 in the Streamlit
+# Cloud UI will fail the install, so pick 3.12 or 3.13.
+streamlit==1.62.0
+pandas==3.0.5
+numpy==2.5.2
+pulp==3.3.2
+requests==2.34.2
+
+# Optional, and for SIGN-IN ONLY. Without it the app runs unauthenticated (or against
+# `SCRCAE_USERS`) and says so on screen. Uncomment it and set SUPABASE_URL and
+# SUPABASE_ANON_KEY to get hosted accounts.
+#
+# It does NOT make saved portfolios durable. `SqlitePortfolioStore` is the only portfolio
+# store in this repository, so on a host with an ephemeral filesystem saved portfolios are
+# lost on restart whether or not this is installed. See DEPLOYING.md.
+# supabase>=2.4
