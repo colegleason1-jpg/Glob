@@ -1,0 +1,46 @@
+{
+  "root": "corpus/supply-chain-resilience-engine",
+  "note": "Approximate retrieval context only: characters divided by four, not model-token telemetry or answer-quality measurement.",
+  "cases": [
+    {
+      "question": "provenance / audit",
+      "files": 25,
+      "globChars": 1776,
+      "baselineChars": 351570,
+      "globApproxTokens": 444,
+      "baselineApproxTokens": 87893,
+      "reduction": "99.5%",
+      "expectedCitationFound": true
+    },
+    {
+      "question": "elasticity fit and refusal",
+      "files": 6,
+      "globChars": 1197,
+      "baselineChars": 87905,
+      "globApproxTokens": 300,
+      "baselineApproxTokens": 21977,
+      "reduction": "98.6%",
+      "expectedCitationFound": true
+    },
+    {
+      "question": "solve callers",
+      "files": 44,
+      "globChars": 2944,
+      "baselineChars": 631437,
+      "globApproxTokens": 736,
+      "baselineApproxTokens": 157860,
+      "reduction": "99.5%",
+      "expectedCitationFound": true
+    },
+    {
+      "question": "resource capacity",
+      "files": 8,
+      "globChars": 1468,
+      "baselineChars": 205425,
+      "globApproxTokens": 367,
+      "baselineApproxTokens": 51357,
+      "reduction": "99.3%",
+      "expectedCitationFound": true
+    }
+  ]
+}

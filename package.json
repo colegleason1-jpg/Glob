@@ -1,0 +1,41 @@
+{
+  "name": "glob",
+  "version": "0.0.1",
+  "description": "Context infrastructure for AI coding agents — local-first codebase search as an MCP server",
+  "type": "module",
+  "scripts": {
+    "spike:parse": "bun run scratch/parse.ts",
+    "spike:walk": "bun run scratch/walk.ts",
+    "spike:timeit": "bun run scratch/timeit.ts",
+    "test": "bun test",
+    "mcp": "bun run src/mcp.ts",
+    "bench:dogfood": "bun run benchmarks/dogfood.ts",
+    "bench:ab": "bun run benchmarks/ab-tool.ts corpus/supply-chain-resilience-engine",
+    "smoke:mcp": "bun run scripts/mcp-client-smoke.ts corpus/supply-chain-resilience-engine"
+  },
+  "license": "MIT",
+  "bin": {
+    "glob": "src/index.ts",
+    "glob-mcp": "src/mcp.ts"
+  },
+  "files": [
+    "src/index.ts",
+    "src/mcp.ts",
+    "src/store.ts",
+    "src/symbols.ts",
+    "src/walk.ts",
+    "README.md",
+    "PLAN.md",
+    "MARKET_POSITION.md"
+  ],
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "dependencies": {
+    "tree-sitter-python": "^0.25.0",
+    "web-tree-sitter": "^0.27.0"
+  },
+  "trustedDependencies": [
+    "tree-sitter-python"
+  ]
+}

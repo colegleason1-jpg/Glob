@@ -1,0 +1,55 @@
+{
+  "status": "pass",
+  "type": "tool-level A/B; not model-token telemetry",
+  "root": "corpus/supply-chain-resilience-engine",
+  "rows": [
+    {
+      "task": "provenance",
+      "baselineFiles": 25,
+      "baselineChars": 351570,
+      "baselineApproxTokens": 87893,
+      "baselineMs": 5.74,
+      "globChars": 3599,
+      "globApproxTokens": 900,
+      "globMs": 10.4,
+      "retrievalReduction": "99.0%",
+      "citationsFound": true
+    },
+    {
+      "task": "calibration",
+      "baselineFiles": 6,
+      "baselineChars": 87905,
+      "baselineApproxTokens": 21977,
+      "baselineMs": 4.62,
+      "globChars": 1873,
+      "globApproxTokens": 469,
+      "globMs": 3.98,
+      "retrievalReduction": "97.9%",
+      "citationsFound": true
+    },
+    {
+      "task": "solve callers",
+      "baselineFiles": 44,
+      "baselineChars": 631437,
+      "baselineApproxTokens": 157860,
+      "baselineMs": 4.05,
+      "globChars": 5313,
+      "globApproxTokens": 1329,
+      "globMs": 11.45,
+      "retrievalReduction": "99.2%",
+      "citationsFound": true
+    },
+    {
+      "task": "capacity",
+      "baselineFiles": 8,
+      "baselineChars": 205425,
+      "baselineApproxTokens": 51357,
+      "baselineMs": 3.41,
+      "globChars": 2403,
+      "globApproxTokens": 601,
+      "globMs": 4.86,
+      "retrievalReduction": "98.8%",
+      "citationsFound": true
+    }
+  ]
+}
