@@ -136,6 +136,35 @@ SMOTE keeps a genuine edge of about +0.03 F1. So it is a real trade, and the bil
 Grepping the whole `over_sampling` package for `calibrat`, `probabilit`, `overestimat`,
 `inflat`, `base rate` or `prior shift` returns nothing.
 
+### python-dateutil 2.9.0 — the hard target
+
+Chosen to resist the method: twenty years old, non-statistical, no pluggable component to
+ablate. A null result was expected and would have been reported.
+
+`parse()` decides date order per string, so a 2,000-row day-first column comes back with
+803 rows read month-first and 1,197 read day-first — **37.2% silently wrong, 0 exceptions,
+0 warnings**, every wrong value a valid date in the same year and a median 118 days off.
+
+Then the documented remedy breaks ISO 8601, which is unambiguous by definition:
+
+```
+parse("2023-01-02", dayfirst=True)  ->  2023-02-01
+```
+
+On a realistic mixed column — spreadsheet slashes plus database ISO, half each:
+
+| setting | slash rows wrong | ISO rows wrong | total |
+| --- | --- | --- | --- |
+| defaults | **376/1000** | 0/1000 | 376 |
+| `dayfirst=True` (the documented remedy) | 0/1000 | **369/1000** | **369** |
+| route ISO to `isoparse` | 0 | 0 | **0** |
+
+The remedy moves the error to the other half of the column and leaves the total almost
+unchanged. The `dayfirst` docstring scopes the flag to *"an ambiguous 3-integer date"*;
+`2023-01-02` is not one, and neither `dayfirst` nor `parse()` mentions ISO anywhere.
+
+Full record: [`docs/cold-test-dateutil.md`](docs/cold-test-dateutil.md).
+
 ### Why this belongs in this repository
 
 Neither is a bug. Both are arithmetic working correctly under a condition nobody wrote
