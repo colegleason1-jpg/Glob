@@ -15,12 +15,17 @@ Packages are worked in descending PyPI download order. Source:
 [hugovk/top-pypi-packages](https://github.com/hugovk/top-pypi-packages), the monthly dump
 of the 15,000 most-downloaded packages, as reported 2026-03-01.
 
-**Limitation, stated rather than hidden:** the live JSON could not be fetched from this
-environment — egress to `hugovk.github.io` is blocked by policy. The top five below are
-sourced to that dump via a search result; the remainder of the initial register is ordered
-by general download prominence and is **approximate**. Before this register is published,
-the true ordering must be fetched and the register re-sorted. Any audit completed under the
-approximate ordering is marked as such.
+**Resolved 2026-09-17.** The first fetch attempt was blocked (`hugovk.github.io`, egress
+policy). The raw GitHub path works, and the live ranking was retrieved: 15,000 packages,
+dump dated 2026-09-01, source ClickHouse. The ordering below is therefore real, not
+approximate. True top 20, for the record:
+
+boto3, packaging, typing-extensions, certifi, idna, urllib3, requests, charset-normalizer,
+setuptools, cryptography, cffi, pluggy, pygments, pyyaml, botocore, python-dateutil, six,
+pydantic, numpy, click.
+
+Note that python-dateutil (audit 4) is rank 16, so one pre-protocol audit did land on a
+genuine top-20 package.
 
 ## Eligibility filter — applied and recorded BEFORE the audit
 
@@ -57,7 +62,8 @@ Audits 1–6 are recorded for completeness and are explicitly **outside** the pr
 | 4 | python-dateutil | intuition — pre-protocol | yes | FINDING | `cold-test-dateutil.md` |
 | 5 | pandas (merge) | intuition — pre-protocol | yes | FINDING | `cold-test-pandas.md` |
 | 6 | scikit-learn (train_test_split) | intuition — pre-protocol | yes | FINDING | `cold-test-sklearn.md` |
-| 7 | — | **protocol, rank 1** | tbd | tbd | — |
+| 7 | **boto3** | **protocol, rank 1** | yes (pre-registered) | **FINDING** | `cold-test-boto3.md` |
+| 8 | packaging | protocol, rank 2 | yes (pre-registered) | tbd | — |
 
 Note that audit 2 is already a clean pass. It was published as one, and that is the
 precedent this register formalises.
@@ -68,11 +74,19 @@ Recorded now, before any of them is audited.
 
 | rank | package | eligible | reasoning |
 | --- | --- | --- | --- |
-| 1 | boto3 | **yes** | pagination and retry behaviour depend on properties of the caller's request and response data |
+| 1 | boto3 | **yes** | pagination and retry behaviour depend on properties of the caller's request and response data — **audited, FINDING** |
 | 2 | packaging | **yes** | version comparison and specifier matching branch on the shape of the version string supplied |
-| 3 | urllib3 | **yes** | `Retry` behaviour depends on whether the caller's request is idempotent, which the caller supplies implicitly |
-| 4 | setuptools | **no** | build-time metadata; no runtime data surface |
-| 5 | certifi | **no** | a certificate bundle; nothing is computed from caller data |
+| 3 | typing-extensions | **no** | type constructs resolved at definition time; nothing is computed from caller data |
+| 4 | certifi | **no** | a certificate bundle; nothing is computed from caller data |
+| 5 | idna | **yes** | encoding decisions branch on properties of the domain string supplied |
+| 6 | urllib3 | **yes** | `Retry` behaviour depends on whether the caller's request is idempotent, which the caller supplies implicitly |
+| 7 | requests | **yes** | encoding detection, redirect and session behaviour branch on response properties |
+| 8 | charset-normalizer | **yes** | its entire job is inferring an assumption about caller-supplied bytes |
+| 9 | setuptools | **no** | build-time metadata; no runtime data surface |
+| 10 | cryptography | **yes** | key and certificate handling branches on properties of supplied material |
+
+Running rate under the protocol: **1 eligible audited, 1 FINDING.** One data point is not
+a rate; it is recorded so the denominator is visible from the start.
 
 ## Standing rules
 

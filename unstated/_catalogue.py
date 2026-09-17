@@ -101,4 +101,25 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         ),
         evidence="docs/cold-test-sklearn.md",
     ),
+    CatalogueEntry(
+        library="boto3",
+        component="list/scan/query operations",
+        versions_measured="1.43.96",
+        assumption="the caller's result set fits in one page",
+        cost_when_violated=(
+            "list_objects_v2 returned 1,000 of 2,500 objects — 40% of the truth, 1,500 "
+            "silently missing, 0 exceptions and 0 warnings, HTTP 200 and a well-formed "
+            "list. DynamoDB scan is worse: it truncates on response size, so the same "
+            "code against the same 400-row table returned 100% at 200-byte rows and 12% "
+            "(49 rows) at 20,000-byte rows. The cutoff moves when someone adds a column, "
+            "and the count returned is never a round number anyone would recognise as a "
+            "ceiling."
+        ),
+        upstream_status=(
+            "documented: IsTruncated/LastEvaluatedKey are in the response and "
+            "get_paginator exists — but nothing at the call site says the default is a "
+            "first page"
+        ),
+        evidence="docs/cold-test-boto3.md",
+    ),
 )

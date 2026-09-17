@@ -13,7 +13,7 @@ import random
 import pandas as pd
 import pytest
 
-from unstated import CATALOGUE, check_dates, check_merge, check_split
+from unstated import CATALOGUE, check_dates, check_merge, check_paginated, check_split
 
 
 # --------------------------------------------------------------------------- #
@@ -150,3 +150,43 @@ def test_a_single_repeated_subject_is_flagged_but_not_as_high():
     groups = list(range(200)) + [7]
     finding = check_split(groups)
     assert finding is not None and finding.severity == "medium"
+
+
+# --------------------------------------------------------------------------- #
+# aws pagination
+# --------------------------------------------------------------------------- #
+
+def test_a_truncated_s3_response_is_flagged():
+    """The measured case: 1,000 of 2,500 objects, IsTruncated the only signal."""
+    response = {"Contents": [{"Key": f"k{i}"} for i in range(1000)],
+                "IsTruncated": True, "KeyCount": 1000}
+    finding = check_paginated(response, operation="list_objects_v2")
+    assert finding is not None
+    assert finding.observed["records_in_this_page"] == 1000
+    assert "IsTruncated" in finding.observed["truncation_markers"]
+    assert "get_paginator" in finding.remedy
+
+
+def test_a_truncated_dynamodb_response_is_flagged_by_a_different_marker():
+    """DynamoDB signals with LastEvaluatedKey, not IsTruncated. A check that only knew
+    one marker would pass the service whose cutoff is hardest to notice."""
+    response = {"Items": [{"id": {"S": "x"}}] * 49, "Count": 49,
+                "LastEvaluatedKey": {"id": {"S": "000048"}}}
+    finding = check_paginated(response, operation="scan")
+    assert finding is not None
+    assert "LastEvaluatedKey" in finding.observed["truncation_markers"]
+
+
+def test_a_complete_response_is_not_flagged():
+    """The silence case. IsTruncated present and False must read as complete."""
+    assert check_paginated({"Contents": [{"Key": "a"}], "IsTruncated": False}) is None
+    assert check_paginated({"Items": [], "Count": 0}) is None
+    assert check_paginated({}) is None
+    assert check_paginated("not a mapping") is None
+
+
+def test_an_empty_token_is_not_a_truncation():
+    """Some services return the marker key with an empty value on the last page.
+    Treating that as truncation would flag every complete result."""
+    assert check_paginated({"Contents": [], "NextToken": ""}) is None
+    assert check_paginated({"Items": [], "LastEvaluatedKey": {}}) is None

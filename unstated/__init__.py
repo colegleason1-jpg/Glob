@@ -30,6 +30,7 @@ from ._catalogue import CATALOGUE, CatalogueEntry
 from .checks.dates import check_dates
 from .checks.frames import check_merge
 from .checks.splits import check_split
+from .checks.aws import check_paginated
 
-__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split"]
+__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split", "check_paginated"]
 __version__ = "0.1.0"
