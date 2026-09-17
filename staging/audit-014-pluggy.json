@@ -1,0 +1,148 @@
+{
+  "audit": 14,
+  "package": "pluggy",
+  "rank": 12,
+  "registered_at": "2026-09-17",
+  "eligibility": "eligible (pre-registered in unstated/protocol/targets.py before any audit past rank 10) \u2014 hook call order and the firstresult rule depend on properties of the plugins the caller registers",
+  "hypotheses": [
+    {
+      "id": "H1",
+      "registered_before_measuring": true,
+      "statement": "With firstresult=True, every hookimpl but one has its return value silently discarded. Nothing tells the caller another plugin also answered."
+    },
+    {
+      "id": "H2",
+      "registered_before_measuring": true,
+      "statement": "Hook call order is LIFO in registration, so a plugin registered LATER takes precedence. Precedence is therefore decided by import order, an environment property the caller never stated."
+    },
+    {
+      "id": "H3",
+      "registered_before_measuring": true,
+      "statement": "tryfirst/trylast do not impose a total order. Two impls carrying the same marker fall back to registration order, so 'I marked mine tryfirst' does not guarantee it runs first."
+    },
+    {
+      "id": "H4",
+      "registered_before_measuring": true,
+      "statement": "An exception raised in one hookimpl aborts the whole hook call, so contributions from impls that had not yet run are lost, and the caller cannot tell a partial result from a complete one."
+    }
+  ],
+  "versions_tested": [
+    {
+      "version": "0.6.0",
+      "released": "2018-04-15",
+      "order_dependent": true,
+      "warnings": 0
+    },
+    {
+      "version": "0.13.1",
+      "released": "2019-11-21",
+      "order_dependent": true,
+      "warnings": 0
+    },
+    {
+      "version": "1.0.0",
+      "released": "2021-08-25",
+      "order_dependent": true,
+      "warnings": 0
+    },
+    {
+      "version": "1.2.0",
+      "released": "2023-06-21",
+      "order_dependent": true,
+      "warnings": 0
+    },
+    {
+      "version": "1.4.0",
+      "released": "2024-01-24",
+      "order_dependent": true,
+      "warnings": 0
+    },
+    {
+      "version": "1.5.0",
+      "released": "2024-04-20",
+      "order_dependent": true,
+      "warnings": 0
+    },
+    {
+      "version": "1.6.0",
+      "released": "2025-05-15",
+      "order_dependent": true,
+      "warnings": 0
+    }
+  ],
+  "measurements": [
+    {
+      "what": "two plugins answer a firstresult hook",
+      "result": "both produced values [80, 100]; the hook returned 80 and discarded 100; 0 warnings, 0 exceptions"
+    },
+    {
+      "what": "reverse the registration order",
+      "result": "the same two plugins return 100 instead of 80 \u2014 LIFO, the last registered runs first"
+    },
+    {
+      "what": "two implementations both marked tryfirst",
+      "result": "2 of 2 registration orders produced a different winner: A-then-B returns 'B', B-then-A returns 'A'. The marker does not break the tie."
+    },
+    {
+      "what": "can the discarded answers be recovered",
+      "result": "no: the return value is a bare int, get_hookimpls() lists 2 implementations but no values, and add_hookcall_monitoring reports only [('resolve', 80)]"
+    },
+    {
+      "what": "pytest exposure",
+      "result": "17 of 52 pytest hookspecs (33%) are firstresult=True, including pytest_fixture_setup and pytest_ignore_collect"
+    },
+    {
+      "what": "None versus 0",
+      "result": "a plugin returning None falls through (result 100); a plugin returning 0 wins (result 0), so None can never be a legitimate answer"
+    },
+    {
+      "what": "an exception in one hookimpl",
+      "result": "raises ValueError to the caller; the working plugin's answer of 100 is not returned. LOUD, not a finding."
+    }
+  ],
+  "hypothesis_outcomes": [
+    {
+      "id": "H1",
+      "outcome": "reproduced",
+      "evidence": "returned 80, discarded 100, 0 warnings"
+    },
+    {
+      "id": "H2",
+      "outcome": "reproduced",
+      "evidence": "80 vs 100 purely by reversing registration order at all 7 versions"
+    },
+    {
+      "id": "H3",
+      "outcome": "reproduced",
+      "evidence": "both tryfirst: A-then-B -> 'B', B-then-A -> 'A'"
+    },
+    {
+      "id": "H4",
+      "outcome": "LOUD",
+      "evidence": "raises ValueError to the caller \u2014 the library tells you. Recorded, not catalogued."
+    }
+  ],
+  "proposed_verdict": "FINDING",
+  "verifier": {},
+  "proposed_entry": {
+    "library": "pluggy",
+    "component": "firstresult hookspecs",
+    "versions_measured": "0.6.0, 0.13.1, 1.0.0, 1.2.0, 1.4.0, 1.5.0, 1.6.0",
+    "affected_versions": "order-dependent at all 7 releases measured, from 0.6.0 (2018-04-15) through 1.6.0 (2025-05-15, current latest) \u2014 7.1 years, sampled rather than exhaustive",
+    "resolved_in": "not resolved \u2014 documented and by design; tryfirst/trylast exist to influence the order but do not break ties",
+    "assumption": "at most one registered plugin answers a first-result hook, so which one answers does not need to be decided",
+    "cost_when_violated": "With two plugins answering the same firstresult hook, the value returned flips from 80 to 100 purely by reversing registration order \u2014 pluggy calls implementations LIFO, so the plugin imported last wins. 0 warnings and 0 exceptions at every one of 7 releases spanning 2018-2025. Two implementations both marked tryfirst still fall back to registration order. Nothing exposes the discarded answers: the return value is a bare int, get_hookimpls() lists implementations but not results, and add_hookcall_monitoring reports only the winner. 17 of 52 pytest hookspecs (33%) are firstresult, including pytest_fixture_setup and pytest_ignore_collect.",
+    "upstream_status": "documented and by design. The gap is not that the rule is hidden \u2014 it is that a contested hook is indistinguishable from an uncontested one at the point the value is used, and pluggy exposes no way to ask.",
+    "evidence": "docs/cold-test-pluggy.md",
+    "span_years": 7.1,
+    "resolution": "open",
+    "resolved_version": null,
+    "check": "check_hook_precedence",
+    "impact": {
+      "believed_claim": "My plugin decides this.",
+      "actual_claim": "One of the plugins decides this, and which one is whichever was imported last. Measured: with two plugins answering, the value flips from 80 to 100 by reversing registration order, 0 warnings.",
+      "breaks": "Whatever the hook was deciding, differently per installation. A plugin architecture exists so behaviour can be extended \u2014 a price resolved, a route chosen, a record classified. When two extensions both answer, one silently loses, and which one depends on what else is installed and in what order. The same application, same code, same inputs gives a different answer on a machine where one extra plugin is present. The returned value carries no provenance, so the answer cannot be traced even after someone notices it changed.",
+      "detection": "Very poor, and it fails in the direction that looks like success. No exception, no warning, no API reporting a contested hook. A single-plugin development environment behaves correctly and deterministically; the ambiguity appears only once a second plugin answering the same hook is installed, which is exactly when nobody is looking at that hook. Adding an unrelated plugin can change an answer elsewhere in the system."
+    }
+  }
+}
