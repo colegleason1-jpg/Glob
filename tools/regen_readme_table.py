@@ -38,9 +38,13 @@ def build_table() -> str:
     ]
     for entry in sorted(CATALOGUE, key=lambda e: e.library):
         detection = _first_sentence(entry.impact.detection, 46) if entry.impact else ""
+        # From the fields, never from the prose. Reading `resolved_in` here dumped
+        # packaging's whole paragraph into a table cell behind "fixed in partially:".
         span = _first_sentence(entry.affected_versions, 64)
-        if entry.is_resolved:
-            span += f" — **fixed in {entry.resolved_in}**"
+        if entry.span_years:
+            span = f"**{entry.span_years:.1f}y** — " + span
+        if entry.resolution != "open":
+            span += f" — **{entry.status}**"
         rows.append(
             f"| `{entry.library}` | `{entry.component}` "
             f"| {span} "

@@ -124,19 +124,23 @@ def main() -> int:
 
     # ---------------------------------------------------------------- findings
     section(f"FINDINGS — {len(CATALOGUE)}")
-    print(f"  {'library':<20} {'component':<38} {'span':<10} status")
-    print("  " + "-" * 92)
-    for e in sorted(CATALOGUE, key=lambda x: x.library):
-        years = re.findall(r"(\d+\.\d)[\s-]*year", e.affected_versions)
-        span = f"{max(float(y) for y in years):.1f}y" if years else "—"
-        if not e.is_resolved:
-            status = "open"
-        elif e.resolved_in.lower().startswith("partial"):
-            ver = re.search(r"(\d[\w.]*)", e.resolved_in.split(":", 1)[-1])
-            status = f"PARTLY fixed {ver.group(1) if ver else ''}"
+    print(f"  {'library':<20} {'component':<38} {'span':<10} {'status':<22} check")
+    print("  " + "-" * 118)
+    unspanned = []
+    for e in sorted(CATALOGUE, key=lambda x: -(x.span_years or 0)):
+        # Read, never parsed. Three wrong renderings came from recovering these from prose.
+        if e.span_years is None:
+            unspanned.append(e.library)
+            span = "NO SPAN"
         else:
-            status = f"fixed in {e.resolved_in.split('(')[0].strip()[:16]}"
-        print(f"  {e.library:<20} {e.component[:37]:<38} {span:<10} {status}")
+            span = f"{e.span_years:.1f}y"
+        print(f"  {e.library:<20} {e.component[:37]:<38} {span:<10} "
+              f"{e.status:<22} {e.check or '(none)'}")
+    if unspanned:
+        raise SystemExit(
+            f"\n  ERROR: {unspanned} carry no span_years. A missing measurement is an "
+            f"error, not a dash — see tools/state.py's docstring."
+        )
 
     # ------------------------------------------------------------- integrity
     section("LEDGER INTEGRITY")
@@ -147,12 +151,27 @@ def main() -> int:
     unranged = [e.library for e in CATALOGUE if e.affected_versions == "not yet ranged"]
     no_evidence = [e.library for e in CATALOGUE if not (ROOT / e.evidence).exists()]
 
-    check_src = "\n".join(
-        p.read_text() for p in (ROOT / "unstated" / "checks").glob("*.py")
+    # Declared by the entry, then confirmed to exist by import — not grepped for.
+    import unstated
+
+    uncovered = sorted(e.library for e in CATALOGUE if e.check is None)
+    dangling = sorted(
+        f"{e.library}->{e.check}" for e in CATALOGUE
+        if e.check and not callable(getattr(unstated, e.check, None))
     )
-    uncovered = sorted(
-        e.library for e in CATALOGUE if f'library="{e.library}"' not in check_src
-    )
+    def disagrees(e) -> bool:
+        """The fields and the prose must say the same thing, or one of them is stale."""
+        prose_says_open = e.resolved_in.strip().lower().startswith(
+            ("not resolved", "unknown"))
+        if (e.resolution == "open") != prose_says_open:
+            return True
+        if e.resolution in ("partial", "fixed") and not e.resolved_version:
+            return True
+        if e.resolution == "open" and e.resolved_version:
+            return True
+        return e.resolution not in e.RESOLUTIONS
+
+    inconsistent = sorted(e.library for e in CATALOGUE if disagrees(e))
     rows = [
         ("established findings (append-only ledger)", len(ESTABLISHED), None),
         ("present in CATALOGUE", len(keys), None),
@@ -161,11 +180,14 @@ def main() -> int:
         ("catalogued but not in the ledger", len(unrecorded), unrecorded),
         ("entries with no measured version range", len(unranged), unranged),
         ("entries whose evidence file is missing", len(no_evidence), no_evidence),
-        ("entries with no check that names them", len(uncovered), uncovered),
+        ("entries with no check (statistical findings)", len(uncovered), uncovered),
+        ("entries naming a check that does not exist", len(dangling), dangling),
+        ("entries whose fields disagree with their prose", len(inconsistent), inconsistent),
     ]
     for label, n, detail in rows:
         problem = ("VANISHED" in label or "not in the ledger" in label
-                   or "evidence file is missing" in label or "no measured" in label)
+                   or "evidence file is missing" in label or "no measured" in label
+                   or "does not exist" in label or "disagree" in label)
         flag = "  <-- PROBLEM" if problem and n else ""
         print(f"  {label:<44} {n}{flag}")
         if detail:
@@ -188,7 +210,14 @@ def main() -> int:
     else:
         out = sh(sys.executable, "-m", "pytest", "--collect-only", "-q")
         m = re.search(r"(\d+) tests? collected", out)
-        print(f"  {m.group(1) if m else '?'} tests collected  (--run-tests to execute them)")
+        if not m:
+            # pytest's own output format, not prose — but a count that degrades to "?"
+            # is the same silent-wrong-answer shape as the span that degraded to "—".
+            raise SystemExit(
+                "  ERROR: could not read a test count from pytest. Output was:\n"
+                + "\n".join(f"    {l}" for l in out.splitlines()[-8:])
+            )
+        print(f"  {m.group(1)} tests collected  (--run-tests to execute them)")
 
     # ----------------------------------------------------------- working tree
     section("WORKING TREE")
@@ -248,7 +277,7 @@ def main() -> int:
             print(f"\n  FILES DELETED: {deleted.splitlines()}")
 
     print()
-    return 1 if (missing or unrecorded or no_evidence) else 0
+    return 1 if (missing or unrecorded or no_evidence or dangling or inconsistent) else 0
 
 
 if __name__ == "__main__":

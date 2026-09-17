@@ -57,22 +57,40 @@ class CatalogueEntry:
     upstream_status: str        #: filed, documented, working-as-intended, unknown
     evidence: str               #: path to the full measurement
     impact: Impact | None = None
+
+    # ---- prose, for a human to read -------------------------------------
     affected_versions: str = "not yet ranged"   #: the measured span, with dates
-    resolved_in: str = "not resolved"           #: first version that warns, raises or fixes
+    resolved_in: str = "not resolved"           #: the verdict, with its explanation
+
+    # ---- the same facts, as facts ---------------------------------------
+    #
+    # These are NOT derived from the prose above at runtime. They were read off the
+    # measurement once, by hand, and are checked against the prose by
+    # ``test_process.py``. An earlier version of ``tools/state.py`` recovered them with a
+    # regex and a string split, and produced three wrong renderings in a row — a span of
+    # "—" because the text said "2.4-year" rather than "2.4 years", and a status reading
+    # "fixed in partially: 26.0". Parsing English to recover a number the writer already
+    # knew is the mistake; this is the fix.
+    span_years: float | None = None             #: measured affected span
+    resolution: str = "open"                    #: "open" | "partial" | "fixed"
+    resolved_version: str | None = None         #: the version that fixes it, if any
+    check: str | None = None                    #: the callable in unstated.checks, if any
+
+    RESOLUTIONS = ("open", "partial", "fixed")
 
     @property
     def is_resolved(self) -> bool:
-        """True when upstream has fixed this, wholly or in part.
+        """True when upstream has fixed this, wholly or in part."""
+        return self.resolution in ("partial", "fixed")
 
-        ``resolved_in`` often carries an explanation after the verdict — "not resolved —
-        upstream treats the divergence as by design" — so this tests the opening word, not
-        the whole string. An earlier version compared the whole string and reported four
-        unresolved entries as fixed.
-        """
-        verdict = self.resolved_in.strip().lower()
-        if not verdict:
-            return False
-        return not verdict.startswith(("not resolved", "unknown"))
+    @property
+    def status(self) -> str:
+        """One short phrase for a table cell. Never derived from prose."""
+        if self.resolution == "open":
+            return "open"
+        if self.resolution == "partial":
+            return f"PARTLY fixed {self.resolved_version or '?'}"
+        return f"fixed in {self.resolved_version or '?'}"
 
 
     def __str__(self) -> str:
@@ -106,6 +124,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         ),
         upstream_status="filed: dateutil/dateutil#402, open since 2017",
         evidence="docs/cold-test-dateutil.md",
+        span_years=12.0,
+        resolution="open",
+        resolved_version=None,
+        check="check_dates",
         impact=Impact(
             believed_claim="This row happened on this date.",
             actual_claim=(
@@ -152,6 +174,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         ),
         upstream_status="guarded: validate= exists and defaults to None",
         evidence="docs/cold-test-pandas.md",
+        span_years=6.8,
+        resolution="open",
+        resolved_version=None,
+        check="check_merge",
         impact=Impact(
             believed_claim="There are this many of these, and they total this much.",
             actual_claim=(
@@ -202,6 +228,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "nor probabilities"
         ),
         evidence="docs/cold-test-smote.md",
+        span_years=6.5,
+        resolution="open",
+        resolved_version=None,
+        check=None,
         impact=Impact(
             believed_claim="There is a p chance this case is positive.",
             actual_claim=(
@@ -248,6 +278,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         ),
         upstream_status="unstated: the docstring gives no precondition",
         evidence="docs/cold-test-optuna.md",
+        span_years=6.6,
+        resolution="open",
+        resolved_version=None,
+        check=None,
         impact=Impact(
             believed_claim="This is the best configuration found in the search.",
             actual_claim=(
@@ -298,6 +332,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "contains none of 'group', 'independent', 'leak', 'subject', 'cluster'"
         ),
         evidence="docs/cold-test-sklearn.md",
+        span_years=6.5,
+        resolution="open",
+        resolved_version=None,
+        check="check_split",
         impact=Impact(
             believed_claim="This model gets it right this often on cases it has not seen.",
             actual_claim=(
@@ -352,6 +390,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "first page"
         ),
         evidence="docs/cold-test-boto3.md",
+        span_years=9.7,
+        resolution="open",
+        resolved_version=None,
+        check="check_paginated",
         impact=Impact(
             believed_claim="These are the things that are there.",
             actual_claim=(
@@ -409,6 +451,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "reads as."
         ),
         evidence="docs/cold-test-packaging.md",
+        span_years=11.7,
+        resolution="partial",
+        resolved_version="26.0",
+        check="check_specifier",
         impact=Impact(
             believed_claim="I pinned this to exactly version 2.0.",
             actual_claim=(
@@ -469,6 +515,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "from the same interpreter."
         ),
         evidence="docs/cold-test-idna.md",
+        span_years=12.4,
+        resolution="open",
+        resolved_version=None,
+        check="check_domain_encoding",
         impact=Impact(
             believed_claim="I am talking to the domain the user gave me.",
             actual_claim=(
@@ -532,6 +582,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "and 'retry on failure' are different things."
         ),
         evidence="docs/cold-test-urllib3.md",
+        span_years=12.2,
+        resolution="open",
+        resolved_version=None,
+        check="check_retry",
         impact=Impact(
             believed_claim="I configured retries, so transient failures are handled.",
             actual_claim=(
@@ -600,6 +654,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "assumed."
         ),
         evidence="docs/cold-test-requests.md",
+        span_years=12.4,
+        resolution="open",
+        resolved_version=None,
+        check="check_response_encoding",
         impact=Impact(
             believed_claim="This is the text the server sent.",
             actual_claim=(
@@ -675,6 +733,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "changing what the number means above it."
         ),
         evidence="docs/cold-test-charset-normalizer.md",
+        span_years=6.9,
+        resolution="open",
+        resolved_version=None,
+        check="check_detected_encoding",
         impact=Impact(
             believed_claim="I decoded this file, and the detector was 100% confident.",
             actual_claim=(
@@ -737,6 +799,10 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             "fix is the answer a reader on that range needs."
         ),
         evidence="docs/cold-test-cryptography.md",
+        span_years=2.4,
+        resolution="fixed",
+        resolved_version="42.0.0",
+        check="check_certificate_dates",
         impact=Impact(
             believed_claim="This certificate has not expired yet.",
             actual_claim=(

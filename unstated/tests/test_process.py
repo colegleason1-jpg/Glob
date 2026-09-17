@@ -140,31 +140,36 @@ def test_claude_md_loads_the_rules_automatically():
         )
 
 
-def test_is_resolved_reads_the_verdict_not_the_whole_string():
-    """`resolved_in` carries an explanation after the verdict — "not resolved — upstream
-    treats this as by design". Two earlier versions of this predicate got it wrong in
-    opposite directions: one reported four unresolved entries as fixed, the next reported
-    every entry as unresolved because "" is a prefix of everything."""
+def test_is_resolved_reads_a_field_not_a_sentence():
+    """`is_resolved` used to parse `resolved_in`, and got it wrong twice in opposite
+    directions: comparing the whole string reported four unresolved entries as fixed, and
+    the fix `startswith(("not resolved", "unknown", ""))` reported every entry as
+    unresolved, because "" is a prefix of everything.
+
+    It reads the `resolution` field now, so neither failure is reachable. This test keeps
+    the history and guards the replacement.
+    """
     from unstated._catalogue import CatalogueEntry
 
-    def entry(resolved_in):
+    def entry(resolution, version=None, prose="not resolved"):
         return CatalogueEntry(
             library="l", component="c", versions_measured="v", assumption="a",
             cost_when_violated="c", upstream_status="u", evidence="e",
-            affected_versions="x", resolved_in=resolved_in,
+            affected_versions="x", resolved_in=prose, span_years=1.0,
+            resolution=resolution, resolved_version=version,
         )
 
-    for verdict, expected in [
-        ("not resolved", False),
-        ("not resolved — upstream treats the divergence as by design", False),
-        ("unknown", False),
-        ("", False),
-        ("   ", False),
-        ("Not Resolved", False),
-        ("42.0.0 (2024-01-23)", True),
-        ("partially: 26.0 (2026-01-21)", True),
-    ]:
-        assert entry(verdict).is_resolved is expected, f"{verdict!r} misread"
+    assert entry("open").is_resolved is False
+    assert entry("partial", "26.0", "partially: 26.0").is_resolved is True
+    assert entry("fixed", "42.0.0", "42.0.0 (2024-01-23)").is_resolved is True
+
+    # The prose no longer decides anything, which is the point of the change.
+    assert entry("open", prose="not resolved — by design").is_resolved is False
+    assert entry("open", prose="").is_resolved is False
+
+    assert entry("open").status == "open"
+    assert entry("partial", "26.0", "partially: 26.0").status == "PARTLY fixed 26.0"
+    assert entry("fixed", "42.0.0", "42.0.0 (2024-01-23)").status == "fixed in 42.0.0"
 
 
 def test_every_entry_carries_a_measured_version_range():
@@ -208,3 +213,78 @@ def test_the_state_tool_runs_and_reports_ground_truth():
     assert f"HELD OPEN — {len(HELD_OPEN)}" in out
     for entry in CATALOGUE:
         assert entry.library in out, f"{entry.library} is missing from the state report"
+
+
+# --------------------------------------------------------------------------- #
+# 2026-09-17: tools/state.py rendered three columns wrongly in a row, every one
+# of them by recovering a fact from prose that the writer already knew. The
+# facts are fields now; these guard the fields and the rendering.
+# --------------------------------------------------------------------------- #
+
+def test_every_entry_carries_its_facts_as_fields():
+    """span, resolution and the fix version are data, not sentences to be parsed."""
+    for e in CATALOGUE:
+        assert e.span_years is not None, f"{e.library} has no span_years"
+        assert e.span_years > 0, f"{e.library} has a non-positive span"
+        assert e.resolution in e.RESOLUTIONS, (
+            f"{e.library} has resolution={e.resolution!r}, not one of {e.RESOLUTIONS}"
+        )
+
+
+def test_the_fields_and_the_prose_say_the_same_thing():
+    """Either can be edited alone, so drift between them is the live risk. A fix version
+    in the fields with 'not resolved' in the prose means one of them is stale."""
+    for e in CATALOGUE:
+        prose_says_open = e.resolved_in.strip().lower().startswith(
+            ("not resolved", "unknown")
+        )
+        assert (e.resolution == "open") == prose_says_open, (
+            f"{e.library}: resolution={e.resolution!r} but resolved_in reads "
+            f"{e.resolved_in[:60]!r}"
+        )
+        if e.resolution in ("partial", "fixed"):
+            assert e.resolved_version, f"{e.library} is {e.resolution} with no version"
+        else:
+            assert not e.resolved_version, f"{e.library} is open but names a fix version"
+
+
+def test_every_named_check_exists_and_is_callable():
+    """The name is declared by the entry; this confirms it resolves. Previously the tool
+    grepped check sources for `library="x"`, which breaks if a string changes."""
+    import unstated
+
+    for e in CATALOGUE:
+        if e.check is None:
+            continue
+        fn = getattr(unstated, e.check, None)
+        assert callable(fn), f"{e.library} names check {e.check!r}, which does not exist"
+
+
+def test_entries_without_a_check_are_the_two_statistical_ones():
+    """Not an accident: SMOTE's calibration damage and MedianPruner's rank assumption are
+    measured by experiment, not by a function you can call on your data. If a third
+    appears, it needs a reason."""
+    assert {e.library for e in CATALOGUE if e.check is None} == {
+        "imbalanced-learn", "optuna"
+    }
+
+
+def test_the_state_report_renders_a_real_span_and_status_for_every_entry():
+    """The test that would have caught the original three bugs. The old one asserted the
+    tool exits 0 — which it did, with all three present."""
+    import subprocess
+    import sys
+
+    out = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "state.py")],
+        capture_output=True, text=True, cwd=ROOT, timeout=300,
+    ).stdout
+    findings = out.split("LEDGER INTEGRITY")[0]
+    assert "NO SPAN" not in findings and "—  " not in findings, (
+        "an entry rendered with no span:\n" + findings
+    )
+    for e in CATALOGUE:
+        row = [l for l in findings.splitlines() if l.strip().startswith(e.library)]
+        assert row, f"{e.library} has no row in the state report"
+        assert f"{e.span_years:.1f}y" in row[0], f"{e.library}: span not rendered"
+        assert e.status in row[0], f"{e.library}: status {e.status!r} not rendered"
