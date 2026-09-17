@@ -101,23 +101,27 @@ something.
 
 ## The gap in what has been done so far
 
-**Targets were chosen by intuition, not by rule.** Six for six sounds like a hit rate. It
-is not one, because the six were picked by someone with reason to suspect each of them.
-Any reviewer will say so, and they will be right.
-
-Before the catalogue is worth publishing at scale, target selection needs a stated
-protocol. The obvious one:
+**Targets were chosen by intuition, not by rule.** The findings are sound — each is
+measured and reproducible — but *which* packages got looked at was decided ad hoc, and that
+is worth fixing on its own terms.
 
 > Work the top N packages by PyPI download count, in order, without skipping.
 
-That makes the hit rate a real number instead of a selection artefact, and it makes a
-*miss* publishable — which is what makes the hits believable.
+That fixes the selection: the order is public and set in advance, so no package can be
+chosen because it looked promising or skipped because it did not.
+
+> **Rewritten 2026-09-17, at the owner's instruction.** This passage previously said "six
+> for six sounds like a hit rate; it is not one" and argued the protocol existed to make the
+> rate believable. That was the contrived frame — treating a detector as if it were
+> estimating how common the defect is across all software. It is not. It finds defects in
+> what it is pointed at, and every one it found is real. The protocol governs **selection**,
+> not results. See rule 7 in `PROCESS.md`.
 
 ## Metrics worth tracking from entry 6 onward
 
 | metric | why |
 | --- | --- |
-| **hit rate** by target, in selection order | the honest expectation is that it falls as obvious targets are exhausted. Track it, publish it, do not hide the decline. |
+| **outcomes** by target, in selection order | recorded and published as measured. No expectation is placed on the rate in either direction — see rule 7 in `PROCESS.md`. |
 | clean passes | already 2 (Optuna's TPE, the Cortex learner). A catalogue with no clean passes is a confirmation machine, not an instrument. |
 | time per audit | currently well under an hour. If it climbs past a day, the economics change. |
 | entries invalidated by a new library version | this is the subscription logic. If entries never go stale, there is no recurring product. **Answered at audit 13: they go stale, in both directions.** `cryptography.Certificate.not_valid_after` is a silent naive datetime on 41.0.7 (a FINDING) and emits a `CryptographyDeprecationWarning` on 50.0.1 (LOUD). Same check, opposite verdicts — and 41.0.7 is what Debian ships. See `cold-test-cryptography.md`. |
@@ -196,7 +200,7 @@ the biggest prize and the wrong first target without a team.
 
 Stated in advance so it cannot be rationalised away later:
 
-* The hit rate falls below roughly 1 in 5 on protocol-selected targets — the method needs
+* ~~The hit rate falls below roughly 1 in 5 on protocol-selected targets~~ **(deleted 2026-09-17: a threshold contrived from the same bad frame; see rule 7)** — the method needs
   a suspicious human and does not scale.
 * Three buyers in the target segment independently say "we'd just fix it, nobody needs to
   know" — the finding is real and the consequence is not.
@@ -206,6 +210,6 @@ Stated in advance so it cannot be rationalised away later:
 
 1. Apply the Kill God patch. Five minutes, removes the worst contradiction.
 2. Adopt the selection protocol and record it before the next audit.
-3. Continue audits in protocol order, tracking hit rate.
+3. Continue audits in protocol order, recording each outcome as measured.
 4. Survey `pandera` / `great_expectations` / `pandas-vet` against the current six.
 5. Then, and only then, publish.

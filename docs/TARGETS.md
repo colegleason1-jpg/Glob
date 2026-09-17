@@ -4,10 +4,22 @@
 
 ## Why this exists
 
-The first six targets were chosen by intuition, by someone with reason to suspect each of
-them. Six findings from six targets is therefore a selection artefact, not a hit rate, and
-any competent reviewer will say so. This protocol exists so that from audit 7 onward the
-rate means something — which requires that a **miss is as publishable as a hit**.
+The first six targets were chosen by intuition. This protocol exists so that from audit 7
+onward the **selection** is honest: targets are worked in a fixed public order, eligibility
+is recorded before the audit, and no target is skipped because a preliminary look suggests
+it is clean. That removes cherry-picking of *which* package gets audited.
+
+It says nothing about what the results should be. Every finding in the catalogue is
+measured, reproducible, and version-ranged; whether the next package also has one changes
+nothing about the twelve that do.
+
+> **Deleted 2026-09-17, at the owner's instruction.** This section previously argued that
+> six findings from six targets was "a selection artefact, not a hit rate", and the standing
+> rules below carried an expectation that the rate must **fall**. That frame was contrived
+> — it treats a detector as though it were estimating a population parameter — and it is
+> what produced the fabricated CLEAN of audit 13 and the claim that "7/7 is a liability".
+> A detector that finds defects in what it is pointed at is working. See rule 7 in
+> [`PROCESS.md`](PROCESS.md).
 
 ## Ordering
 
@@ -137,12 +149,10 @@ Running rate under the protocol: **7 eligible audited, 7 FINDINGS** — one of w
 rather than dropped. Ranks 3 and 4 (typing-extensions, certifi) were pre-registered
 ineligible and are skipped on the record, not silently.
 
-**The predicted decline has NOT yet arrived.** It was briefly recorded as having arrived at
-audit 13, and that was an error of judgement rather than of measurement — see *The
-correction that produced this rule* above. The honest position is that 7 of 7 eligible
-packages have yielded a finding, which is still an uncomfortably high rate for a protocol
-whose stated expectation is that it falls. It has not fallen yet. That is what the register
-says, and it is not smoothed in either direction.
+Audit 13 was briefly recorded as a CLEAN and was not one — an error of judgement, not of
+measurement; see *The correction that produced this rule* above. Seven of seven eligible
+packages have yielded a finding, all of them measured, reproducible and version-ranged.
+That is the record. It needs no explaining away.
 
 What audit 13 *did* legitimately establish is that cryptography is the most carefully
 maintained library audited: thirteen probes, and on the current release nine of them found
@@ -181,9 +191,14 @@ nothing and the round-trip rate is 12/20 — reported at confidence 1.000 either
 
 ## Standing rules
 
-* The hit rate is reported over **eligible** packages only, and the eligible/ineligible
-  split is published alongside it.
-* The expectation is that the rate **falls** as obvious targets are exhausted. That decline
-  is published, not smoothed.
-* No target is skipped because a preliminary look suggests it is clean. Once eligible, it
-  is audited and the outcome recorded whatever it is.
+* Targets are worked in the published download order. The order is fixed before the audits,
+  not chosen around them.
+* Eligibility is recorded **before** the audit, and the eligible/ineligible split is
+  published, so the selection cannot be retro-fitted.
+* Hypotheses are registered before measuring, and the ones that **do not reproduce are
+  published** — two of four did not on audit 12, and they are in the write-up.
+* No target is skipped because a preliminary look suggests it is clean. Once eligible, it is
+  audited and the outcome recorded whatever it is.
+* **No expectation is placed on the result.** Findings are reported as measured. A rate that
+  stays high is not evidence of anything needing correction, and the protocol contains no
+  target for it in either direction.
