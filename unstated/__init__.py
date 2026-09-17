@@ -29,6 +29,7 @@ from ._finding import Finding
 from ._catalogue import CATALOGUE, CatalogueEntry
 from .checks.dates import check_dates
 from .checks.frames import check_merge
+from .checks.splits import check_split
 
-__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge"]
+__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split"]
 __version__ = "0.1.0"

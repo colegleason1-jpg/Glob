@@ -84,4 +84,21 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         upstream_status="unstated: the docstring gives no precondition",
         evidence="docs/cold-test-optuna.md",
     ),
+    CatalogueEntry(
+        library="scikit-learn",
+        component="model_selection.train_test_split",
+        versions_measured="1.9.1",
+        assumption="rows are independent — that no two rows share a subject",
+        cost_when_violated=(
+            "accuracy overstated by 14.8% and ROC-AUC by 9.5% on 12 of 12 trials "
+            "(0.9472 vs 0.8250, 0.9910 vs 0.9047) with 150 subjects at 8 rows each, "
+            "0 exceptions and 0 warnings. The remedy, GroupShuffleSplit, ships in the "
+            "same module."
+        ),
+        upstream_status=(
+            "unstated: train_test_split takes no groups argument, and its docstring "
+            "contains none of 'group', 'independent', 'leak', 'subject', 'cluster'"
+        ),
+        evidence="docs/cold-test-sklearn.md",
+    ),
 )

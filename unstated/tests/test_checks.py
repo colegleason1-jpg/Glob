@@ -13,7 +13,7 @@ import random
 import pandas as pd
 import pytest
 
-from unstated import CATALOGUE, check_dates, check_merge
+from unstated import CATALOGUE, check_dates, check_merge, check_split
 
 
 # --------------------------------------------------------------------------- #
@@ -121,3 +121,32 @@ def test_every_catalogue_entry_carries_its_evidence_and_a_measured_cost():
             f"{entry} states no measured cost"
         )
         assert entry.upstream_status, entry
+
+
+# --------------------------------------------------------------------------- #
+# splits
+# --------------------------------------------------------------------------- #
+
+def test_repeated_subjects_are_flagged():
+    """The measured case: 8 rows per subject overstates accuracy by 14.8%."""
+    groups = [s for s in range(150) for _ in range(8)]
+    finding = check_split(groups)
+    assert finding is not None
+    assert finding.severity == "high"
+    assert finding.observed["distinct_groups"] == 150
+    assert finding.observed["largest_group"] == 8
+    assert "GroupShuffleSplit" in finding.remedy
+
+
+def test_one_row_per_subject_is_not_flagged():
+    """The silence case. Independent rows are exactly what the default is for."""
+    assert check_split(range(500)) is None
+    assert check_split([]) is None
+
+
+def test_a_single_repeated_subject_is_flagged_but_not_as_high():
+    """Severity has to track how much of the data is affected, or every frame with one
+    accidental duplicate reads as an emergency and the check gets ignored."""
+    groups = list(range(200)) + [7]
+    finding = check_split(groups)
+    assert finding is not None and finding.severity == "medium"
