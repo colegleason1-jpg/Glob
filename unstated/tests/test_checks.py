@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 from unstated import (CATALOGUE, check_dates, check_domain_encoding, check_merge,
-                      check_retry,
+                      check_response_encoding, check_retry,
                       check_paginated, check_specifier,
                       check_split)
 
@@ -323,6 +323,17 @@ def test_the_readme_table_matches_the_catalogue():
         f"README table has {listed} rows, catalogue has {len(CATALOGUE)}"
     )
 
+    # The prose counts drifted independently of the table, so they are generated too.
+    stated = text.split("<!-- CATALOGUE COUNT -->")[1].split("<!--")[0]
+    assert int(stated) == len(CATALOGUE), (
+        f"README says {stated} entries, catalogue has {len(CATALOGUE)}"
+    )
+    stated = text.split("<!-- PROJECT COUNT -->")[1].split("<!--")[0].strip()
+    assert int(stated) == len({e.library for e in CATALOGUE}), (
+        f"README says {stated} projects, catalogue covers "
+        f"{len({e.library for e in CATALOGUE})}"
+    )
+
 
 # --------------------------------------------------------------------------- #
 # retries
@@ -377,3 +388,145 @@ def test_retries_turned_off_are_not_flagged():
 
     assert check_retry(Retry(total=0)) is None
     assert check_retry(Retry(total=False)) is None
+
+
+# --------------------------------------------------------------------------- #
+# response encoding
+#
+# These run against a real local HTTP server rather than a stub, because the whole
+# finding is about what requests does with a header on the wire. A stub would let the
+# test agree with my reading of the source instead of with the library.
+# --------------------------------------------------------------------------- #
+
+@pytest.fixture(scope="module")
+def serve():
+    """Serve a body under a chosen Content-Type. The type travels base64 in the path so
+    a space or semicolon cannot mangle the request line — an earlier version of this
+    probe did exactly that and produced a bogus result."""
+    import base64
+    import http.server
+    import socketserver
+    import threading
+
+    state: dict[str, bytes] = {"body": b""}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            token = self.path.lstrip("/")
+            self.send_response(200)
+            if token != "none":
+                self.send_header(
+                    "Content-Type", base64.urlsafe_b64decode(token.encode()).decode()
+                )
+            self.send_header("Content-Length", str(len(state["body"])))
+            self.end_headers()
+            self.wfile.write(state["body"])
+
+        def log_message(self, *a):
+            pass
+
+    server = socketserver.TCPServer(("127.0.0.1", 0), Handler)
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    def get(content_type, body):
+        import requests
+
+        state["body"] = body
+        token = (
+            "none" if content_type is None
+            else base64.urlsafe_b64encode(content_type.encode()).decode()
+        )
+        return requests.get(f"http://127.0.0.1:{port}/{token}")
+
+    yield get
+    server.shutdown()
+
+
+def test_utf8_served_as_text_plain_comes_back_wrong_and_is_flagged(serve):
+    """The measurement this entry exists for: the bytes are UTF-8, the server declared no
+    charset, and r.text is mojibake with no exception and no warning."""
+    truth = "Käse und Brötchen für alle"
+    response = serve("text/plain", truth.encode("utf-8"))
+
+    assert response.text != truth                      # the library, not the check
+    assert response.encoding == "ISO-8859-1"
+    assert len(response.text) == len(truth) + 3        # three umlauts, one extra char each
+
+    finding = check_response_encoding(response)
+    assert finding is not None
+    assert finding.severity == "high"
+    assert finding.observed["body_is_valid_utf8"] == "yes"
+    assert finding.observed["utf8_sample"].startswith("Käse")
+
+
+def test_the_right_answer_was_available_on_the_same_object(serve):
+    """apparent_encoding is computed by the same Response and is not consulted, because
+    the header rule already produced an answer. This is what makes it a defect rather
+    than a hard problem."""
+    truth = "Aktivität – naïve café — 日本 — £5"
+    response = serve("text/csv", truth.encode("utf-8"))
+
+    assert response.text != truth
+    assert response.content.decode(response.apparent_encoding) == truth
+
+
+def test_an_ascii_body_is_not_flagged(serve):
+    """Why this survives a test suite, and why the check must stay quiet about it: ASCII
+    is a fixed point of Latin-1, so nothing is being decided."""
+    response = serve("text/csv", b"item,qty\nwidget,2\n")
+
+    assert response.text == "item,qty\nwidget,2\n"
+    assert check_response_encoding(response) is None
+
+
+def test_a_declared_charset_is_not_flagged(serve):
+    """The server said so. There is no assumption left to be wrong about."""
+    truth = "café"
+    response = serve("text/plain; charset=utf-8", truth.encode("utf-8"))
+
+    assert response.text == truth
+    assert check_response_encoding(response) is None
+
+
+def test_application_json_is_not_flagged(serve):
+    """requests assumes UTF-8 for JSON per RFC 4627, which is the correct assumption."""
+    truth = '{"item": "café"}'
+    response = serve("application/json", truth.encode("utf-8"))
+
+    assert response.text == truth
+    assert check_response_encoding(response) is None
+
+
+def test_json_labelled_as_text_is_flagged_because_r_json_inherits_it(serve):
+    """A server that labels JSON text/plain is common, and r.json() decodes through
+    r.text, so the structured value is mojibake too."""
+    response = serve("text/plain", '{"item": "café", "qty": 2}'.encode("utf-8"))
+
+    assert response.json()["item"] != "café"
+    assert check_response_encoding(response) is not None
+
+
+def test_the_rule_is_a_substring_test_not_a_media_type_test(serve):
+    """'text' in content_type, so a media type that merely contains the letters is
+    treated as legacy text."""
+    truth = "café"
+    response = serve("application/x-subrip-text", truth.encode("utf-8"))
+
+    assert response.encoding == "ISO-8859-1"
+    assert response.text != truth
+    assert check_response_encoding(response) is not None
+
+
+def test_the_rule_is_case_sensitive_though_media_types_are_not(serve):
+    """RFC 9110 §8.3.1: media type tokens are case-insensitive. Two servers sending
+    identical bytes under the same media type hand the caller different strings."""
+    truth = "café"
+
+    lower = serve("text/plain", truth.encode("utf-8"))
+    upper = serve("TEXT/PLAIN", truth.encode("utf-8"))
+
+    assert lower.text != truth
+    assert upper.text == truth
+    assert check_response_encoding(lower) is not None
+    assert check_response_encoding(upper) is None

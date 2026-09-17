@@ -34,6 +34,7 @@ from .checks.aws import check_paginated
 from .checks.versions import check_specifier
 from .checks.domains import check_domain_encoding
 from .checks.retries import check_retry
+from .checks.encoding import check_response_encoding
 
-__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split", "check_paginated", "check_specifier", "check_domain_encoding", "check_retry"]
+__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split", "check_paginated", "check_specifier", "check_domain_encoding", "check_retry", "check_response_encoding"]
 __version__ = "0.1.0"

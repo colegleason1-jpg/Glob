@@ -66,7 +66,8 @@ Audits 1–6 are recorded for completeness and are explicitly **outside** the pr
 | 8 | **packaging** | **protocol, rank 2** | yes (pre-registered) | **FINDING** | `cold-test-packaging.md` |
 | 9 | **idna** | **protocol, rank 5** | yes (pre-registered) | **FINDING** | `cold-test-idna.md` |
 | 10 | **urllib3** | **protocol, rank 6** | yes (pre-registered) | **FINDING** | `cold-test-urllib3.md` |
-| 11 | requests | protocol, rank 7 | yes (pre-registered) | tbd | — |
+| 11 | **requests** | **protocol, rank 7** | yes (pre-registered) | **FINDING** | `cold-test-requests.md` |
+| 12 | charset-normalizer | protocol, rank 8 | yes (pre-registered) | tbd | — |
 
 Note that audit 2 is already a clean pass. It was published as one, and that is the
 precedent this register formalises.
@@ -83,15 +84,32 @@ Recorded now, before any of them is audited.
 | 4 | certifi | **no** | a certificate bundle; nothing is computed from caller data |
 | 5 | idna | **yes** | encoding decisions branch on properties of the domain string supplied — **audited, FINDING** |
 | 6 | urllib3 | **yes** | `Retry` behaviour depends on whether the caller's request is idempotent, which the caller supplies implicitly — **audited, FINDING** |
-| 7 | requests | **yes** | encoding detection, redirect and session behaviour branch on response properties |
-| 8 | charset-normalizer | **yes** | its entire job is inferring an assumption about caller-supplied bytes |
+| 7 | requests | **yes** | encoding detection, redirect and session behaviour branch on response properties — **audited, FINDING** |
+| 8 | charset-normalizer | **yes** | its entire job is inferring an assumption about caller-supplied bytes — **next** |
 | 9 | setuptools | **no** | build-time metadata; no runtime data surface |
 | 10 | cryptography | **yes** | key and certificate handling branches on properties of supplied material |
 
-Running rate under the protocol: **4 eligible audited, 4 FINDINGS.** Ranks 3 and 4
+Running rate under the protocol: **5 eligible audited, 5 FINDINGS.** Ranks 3 and 4
 (typing-extensions, certifi) were pre-registered ineligible and are skipped on the record,
-not silently. Four is still not a rate, and the expectation remains that it falls — the
+not silently. Five is still not a rate, and the expectation remains that it falls — the
 value of this register is that when it does, the denominator is already written down.
+
+**Ranks 11–15, pre-registered now, before any of them is looked at** — so the filter
+cannot be fitted to the results later:
+
+| rank | package | eligible | reasoning |
+| --- | --- | --- | --- |
+| 11 | cffi | **no** | a foreign-function build and binding layer; behaviour is decided by the C declarations, not by runtime caller data |
+| 12 | pluggy | **yes** | hook call order and the first-result rule depend on properties of the plugins registered by the caller |
+| 13 | pygments | **yes** | lexer selection is inferred from filename and content, which is an assumption about caller-supplied data |
+| 14 | pyyaml | **yes** | scalar resolution branches on the shape of the supplied string — the Norway problem is the canonical instance |
+| 15 | botocore | **defer** | boto3 (rank 1) is a thin layer over it and was audited at rank 1; auditing it separately would double-count one codebase unless a surface outside boto3's is chosen |
+
+**Note on rank 8.** charset-normalizer is the detector that was measured at 12/12 in
+audit 11 — it produced the correct answer on every body requests got wrong. Auditing it
+next is uncomfortable in a useful way: the protocol requires the target be audited on its
+own terms whatever audit 11 said about it, and a CLEAN outcome there would be the more
+interesting result.
 
 ## Standing rules
 

@@ -438,4 +438,64 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             ),
         ),
     ),
+    CatalogueEntry(
+        library="requests",
+        component="Response.text",
+        versions_measured="2.33.1",
+        assumption=(
+            "a text/* response that omits charset is Latin-1, per RFC 2616 §3.7.1 — a "
+            "default RFC 7231 removed in 2014"
+        ),
+        cost_when_violated=(
+            "Over 12 UTF-8 bodies served as text/plain with no charset, measured on the "
+            "wire: r.text was correct 0/12, r.apparent_encoding was correct 12/12. All "
+            "35 non-ASCII characters in the corpus were mangled, len(r.text) was wrong on "
+            "12/12 bodies (+43 characters over-counted in total), and there were 0 "
+            "exceptions and 0 warnings. The same rule is a substring test, so "
+            "application/x-subrip-text is treated as legacy text, and it is "
+            "case-sensitive, so 'text/plain' mojibakes while 'TEXT/PLAIN' — the same media "
+            "type, case-insensitive per RFC 9110 §8.3.1 — decodes correctly."
+        ),
+        upstream_status=(
+            "working-as-intended and documented: Response.text says 'following RFC 2616 to "
+            "the letter'. The letter of RFC 2616 was superseded in 2014. Nothing at the "
+            "call site distinguishes a charset the server declared from one requests "
+            "assumed."
+        ),
+        evidence="docs/cold-test-requests.md",
+        impact=Impact(
+            believed_claim="This is the text the server sent.",
+            actual_claim=(
+                "This is the body reinterpreted under a 1999 default the server never "
+                "asked for. Measured: 0 of 12 UTF-8 bodies served as text/plain came back "
+                "correct, every one of the 35 non-ASCII characters was replaced by two or "
+                "three others, and len() was wrong on all 12."
+            ),
+            breaks=(
+                "Two things, and the second is worse than the mojibake. Anything that "
+                "matches a string stops matching: a product name, a supplier, a city, a "
+                "patient surname read back from an API no longer equals the record it was "
+                "written from, so a lookup returns nothing and the caller handles a "
+                "missing row rather than a wrong one. And anything that counts characters "
+                "counts wrong — 'café' arrives as 5 characters instead of 4. A column "
+                "width, a field limit, a per-character price, a quantity parsed out of a "
+                "text response: the number is off by exactly the number of accented "
+                "characters upstream, which is data-dependent and nobody's constant. If "
+                "the inflated string is then truncated to a stored width the damage stops "
+                "being recoverable: of 37 truncation points on one 33-character string, 4 "
+                "raise on repair and 31 repair to different content than the original "
+                "prefix. r.json() inherits it whenever the server labels JSON as "
+                "text/plain or text/json, so structured data is affected too."
+            ),
+            detection=(
+                "Worst case, and the reason it reaches production. An ASCII body decodes "
+                "identically under both encodings, so every test written against ASCII "
+                "fixtures passes. Latin-1 maps all 256 byte values, so the decode cannot "
+                "raise — there is no byte sequence that signals the guess was wrong. The "
+                "failure appears only when real data carries an accent, and it appears as "
+                "cosmetic 'weird characters' that get patched at the display layer while "
+                "the counts and the lookups stay wrong."
+            ),
+        ),
+    ),
 )

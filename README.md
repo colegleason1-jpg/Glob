@@ -107,7 +107,7 @@ check_merge(orders, customers, on="customer_id")
 ```
 
 Findings are **measured, not predicted** — the report says "36.7% of these 2,000 values",
-not "this can happen". `CATALOGUE` carries 8 entries, each with the cost measured
+not "this can happen". `CATALOGUE` carries <!-- CATALOGUE COUNT -->10<!-- /CATALOGUE COUNT --> entries, each with the cost measured
 when it was added, its upstream status, and a path to the full run.
 
 Half the tests assert the checks stay **silent**: on a spelled-out month column, on a
@@ -126,6 +126,7 @@ switched off in its first week and takes the real findings with it.
 | `packaging` | `SpecifierSet` | the caller cares only about ordering — not whether a candidate is a pre... | 30% of 60 specifier/version pairs disagree with plain ordering, in both directions | Poor in both directions |
 | `pandas` | `DataFrame.merge` | the join key is unique on at least one side | 2.02x row inflation and +105.4% on the summed column, with 0 exceptions, 0 warnings, no nulls introduced, dtypes preserved and every value in range | Poor, and worse than it looks |
 | `python-dateutil` | `parser.parse` | month-before-day ordering, decided per string rather than per column | 37.2% of a 2,000-row day-first column silently wrong, median 118 days off, 0 exceptions and 0 warnings; one column returned under two conventions (... | Poor |
+| `requests` | `Response.text` | a text/* response that omits charset is Latin-1, per RFC 2616 §3.7.1 — ... | Over 12 UTF-8 bodies served as text/plain with no charset, measured on the wire: r.text was correct 0/12, r.apparent_encoding was correct 12/12 | Worst case, and the reason it reaches produ... |
 | `scikit-learn` | `model_selection.train_test_split` | rows are independent — that no two rows share a subject | accuracy overstated by 14.8% and ROC-AUC by 9.5% on 12 of 12 trials (0.9472 vs 0.8250, 0.9910 vs 0.9047) with 150 subjects at 8 rows each, 0 except... | The failure looks like SUCCESS, which is th... |
 | `urllib3` | `util.retry.Retry` | the caller wants connection-level retries only, spaced by nothing, on m... | Measured on the wire against a local server returning 503 and counting the requests that arrive: Retry(total=3) sends 1 request | Poor for the first, and inverted for the third |
 <!-- END CATALOGUE TABLE -->
@@ -142,15 +143,13 @@ a hit. Before continuing past six, the [prior-art check](docs/prior-art.md) test
 `pandas-vet`, `pandera` or `deepchecks` already catch any of these. None do.
 
 
-The discipline behind this repository turned out to detect one failure mode repeatedly,
-across code written by four different authors in four unrelated fields:
+Every entry was found **cold** — in a public library, with no prior familiarity with its
+source — and they are spread across <!-- PROJECT COUNT -->10<!-- /PROJECT COUNT -->
+independently maintained projects with no shared authorship — AWS, the PyPA, the PSF, the
+pandas, scikit-learn and urllib3 teams, Preferred Networks, and the imbalanced-learn,
+dateutil and idna maintainers. The failure mode is not one team's habit.
 
-> **A component that works under an assumption, with nothing in the software signalling
-> when the assumption does not hold — and a safe path that costs something real.**
-
-The last two were found cold, in public libraries, with no prior familiarity with their
-source. They are recorded in full in [`docs/cold-test-optuna.md`](docs/cold-test-optuna.md)
-and [`docs/cold-test-smote.md`](docs/cold-test-smote.md).
+Two of the runs below are kept in full as worked examples.
 
 ### Optuna 5.0.0 — `MedianPruner`
 

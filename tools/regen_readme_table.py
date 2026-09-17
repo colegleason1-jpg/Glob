@@ -20,6 +20,10 @@ from unstated import CATALOGUE  # noqa: E402
 
 BEGIN = "<!-- BEGIN CATALOGUE TABLE (generated from unstated.CATALOGUE — do not hand-edit) -->"
 END = "<!-- END CATALOGUE TABLE -->"
+COUNT_BEGIN = "<!-- CATALOGUE COUNT -->"
+COUNT_END = "<!-- /CATALOGUE COUNT -->"
+PROJECT_BEGIN = "<!-- PROJECT COUNT -->"
+PROJECT_END = "<!-- /PROJECT COUNT -->"
 
 
 def _first_sentence(text: str, limit: int) -> str:
@@ -51,7 +55,21 @@ def main() -> int:
         return 1
     head, rest = text.split(BEGIN, 1)
     _, tail = rest.split(END, 1)
-    readme.write_text(f"{head}{BEGIN}\n{build_table()}\n{END}{tail}")
+    text = f"{head}{BEGIN}\n{build_table()}\n{END}{tail}"
+
+    # The prose count drifted too, so it is generated from the same source.
+    if COUNT_BEGIN in text and COUNT_END in text:
+        head, rest = text.split(COUNT_BEGIN, 1)
+        _, tail = rest.split(COUNT_END, 1)
+        text = f"{head}{COUNT_BEGIN}{len(CATALOGUE)}{COUNT_END}{tail}"
+
+    if PROJECT_BEGIN in text and PROJECT_END in text:
+        projects = len({e.library for e in CATALOGUE})
+        head, rest = text.split(PROJECT_BEGIN, 1)
+        _, tail = rest.split(PROJECT_END, 1)
+        text = f"{head}{PROJECT_BEGIN}{projects}{PROJECT_END}{tail}"
+
+    readme.write_text(text)
     print(f"README table regenerated from {len(CATALOGUE)} catalogue entries")
     return 0
 
