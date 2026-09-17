@@ -1,4 +1,23 @@
-# Audit 14: pluggy — protocol rank 12
+# Audit 14: pluggy — protocol rank 12 — **REFUTED TWICE, NOT PUBLISHED**
+
+> **Do not cite this document.** It has been refuted on two successive verification rounds
+> and is kept only as the record of both. The entry is NOT in the catalogue. Specifically
+> wrong below, each re-measured directly:
+>
+> * **The "one unrelated plugin changes who decides" section is false.** `pytest_subtests`
+>   was never installed — `_pytest/subtests.py` is a pytest **builtin** in
+>   `default_plugins`. That measurement unregistered pytest's own plugin. Second time this
+>   claim was got wrong: first a broken probe reading as a negative, then this reading as a
+>   measurement.
+> * **"A wrapper cannot answer" is false.** A `wrapper=True` implementation that returns a
+>   value replaces the result, and two competing wrappers flip the same way — so the
+>   wrapper filter traded a false positive for a **false negative**.
+> * **"The losing implementations are never called" is false in practice.** In 42 of 42
+>   measured real calls an earlier implementation ran and abstained.
+> * **The falsy-values table's "implementations run" column is wrong** as the rows are
+>   ordered, and the `-p` / entry-point / `PYTEST_PLUGINS` order is wrong.
+> * `1.1.0` is yanked on PyPI; "exhaustive" means exhaustive over what PyPI still serves.
+
 
 2026-09-17 · **AUDITING: pluggy** · protocol rank **12** of 15,000.
 

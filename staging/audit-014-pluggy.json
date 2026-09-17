@@ -146,7 +146,7 @@
       "evidence": "raises ValueError to the caller"
     }
   ],
-  "proposed_verdict": "FINDING",
+  "proposed_verdict": "REFUTED-ROUND-2",
   "verifier": {
     "refuted": true,
     "reason": "Central phenomenon real and broader than claimed, but the stated MECHANISM is wrong, the ordering rule is wrong, two 'no API exists' claims are false, one release date is wrong, and the check fires HIGH on stock pytest with zero third-party plugins.",
@@ -188,5 +188,20 @@
     "not_adopted": [],
     "verdict": "DO NOT PROMOTE. The finding is real; the write-up and the check are not fit to publish."
   },
-  "adopted_correction": "Adopted in full and re-measured. Mechanism corrected from 'discards' to 'never calls' \u2014 _multicall breaks at the first non-None, so the losers' bodies and SIDE EFFECTS never run. Ordering corrected from LIFO to the six-bucket rule with registration order breaking ties within a bucket only (trylast is FIFO). Both 'no API exposes it' claims deleted; get_hookimpls()+spec.opts, add_hookcall_monitoring and subset_hook_caller all expose it, and measure_contention() now uses the last of these. 0.6.0 date corrected to 2017-11-24 and span to 7.5 years; range widened to all 17 releases (exhaustive) with 0.6.0 marked earliest-measured rather than onset. pytest count qualified by version (17/52 at 9.1.1, 16/52 at 7.4.4). Contested-is-normal stated explicitly (9 of 17 on stock pytest). The 'unrelated plugin changes an answer' claim was MEASURED rather than removed: registering pytest-subtests changed the deciding implementation on 3 of 3 hooks it joined, 0 warnings \u2014 and the first probe of it (timeout/xdist/cov) was broken, which is recorded too. Check rebuilt: wrappers filtered, fabricated answers_discarded_per_call replaced with plugins_that_will_not_run_on_it, severity medium, stock pytest 11-at-high -> 9-at-medium."
+  "verifier_round_2": {
+    "refuted": true,
+    "reason": "The rework introduced NEW errors of the same class it was fixing. The headline measurement is a false positive, the wrapper filter traded a false positive for a false negative, the fabricated field was renamed rather than fixed, and one new test is vacuous.",
+    "corrected_claim": "pluggy firstresult returns the first non-None answer and never calls the rest; order is set by six buckets (ALL WRAPPERS ahead of ALL non-wrappers, then tryfirst > plain > trylast) and within a bucket by registration order. Two plugins that both answer flip 80<->100 by registration order at every release testable on Python 3.11, 0.3.0 (2015-05-07) through 1.6.0 (2025-05-15); 0.6.0-1.6.0 is all 17 PyPI releases of that span, one of them (1.1.0) yanked. A WRAPPER CAN ALSO DECIDE THE VALUE, by returning one or via force_result, and two competing wrappers flip the same way. NOT supported: that this normally displaces anyone \u2014 contested first-result hooks are the ordinary state and in 42 of 42 real calls an earlier impl ran and abstained."
+  },
+  "owner_review_round_2": {
+    "reviewed_by": "Claude, independently re-measured \u2014 not adopted on the verifier's word",
+    "date": "2026-09-17",
+    "confirmed": [
+      "pytest_subtests WAS NEVER INSTALLED. _pytest/subtests.py is a pytest BUILTIN and 'subtests' is in default_plugins. The plugin I registered and unregistered was pytest's own. My headline 'installing one unrelated third-party plugin changed the decider on 3 of 3 hooks' measured unregistering a builtin. The claim is false as stated, and this is the SECOND time I got it wrong \u2014 first a broken probe reading as a negative, then a false positive reading as a measurement.",
+      "A WRAPPER CAN DECIDE THE VALUE. A wrapper=True impl returning 'WRAPPER-DECIDED' beat a plain impl's 100, and check_hook_precedence returned None. The wrapper filter I added to kill a false positive created a FALSE NEGATIVE on a genuinely order-dependent contest.",
+      "plugins_that_will_not_run_on_it is the rejected answers_discarded_per_call RENAMED, not fixed. It reports 6 for pytest_cmdline_main; instrumented, 6 of 6 impls ran and 0 were skipped.",
+      "test_a_relay_attribute_that_raises_does_not_crash_the_check is VACUOUS. dir(Hostile()) yields 28 names, 0 non-underscore, so the guarded line is never reached. Proven by mutation: deleting the try/except it is named for leaves all tests passing."
+    ],
+    "verdict": "DO NOT PROMOTE. Second refutation. The rework introduced new errors of the same class."
+  }
 }

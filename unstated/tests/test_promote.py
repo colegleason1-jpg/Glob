@@ -51,12 +51,14 @@ def test_audit_14_keeps_its_refutation_on_the_record():
         "the independent re-measurements of each refuted claim were erased"
     )
     assert rec["owner_review"]["verdict"].startswith("DO NOT PROMOTE")
-    assert rec.get("adopted_correction"), "refuted with no correction adopted"
+    assert rec["verifier_round_2"]["refuted"] is True, "the second refutation was erased"
+    assert len(rec["owner_review_round_2"]["confirmed"]) >= 4
+    assert rec["owner_review_round_2"]["verdict"].startswith("DO NOT PROMOTE")
 
-    for gone in ("LIFO", "discarded"):
-        assert gone in rec["adopted_correction"], (
-            f"the correction no longer says what was wrong about {gone!r}"
-        )
+    # The rework's own errors must stay named, not be smoothed into "it was corrected".
+    joined = " ".join(rec["owner_review_round_2"]["confirmed"])
+    for gone in ("NEVER INSTALLED", "FALSE NEGATIVE", "RENAMED", "VACUOUS"):
+        assert gone in joined, f"the second review no longer names {gone!r}"
 
 
 def test_pluggy_is_not_in_the_catalogue():
