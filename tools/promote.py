@@ -44,8 +44,34 @@ def has_number(text: str) -> bool:
     return any(ch.isdigit() for ch in str(text))
 
 
+#: Refusals that mean a required step has not happened yet. The record is not defective,
+#: it is unfinished. Reported separately because a list that mixes "this is wrong" with
+#: "this is not done" trains a reader to skim it.
+INCOMPLETE_MARKERS = (
+    "verifier has no refuted flag",
+    "no hypotheses registered",
+    "has no recorded outcome",
+    "no measurements recorded",
+    "no versions tested",
+    "missing top-level field",
+)
+
+
+def classify(problem: str) -> str:
+    """"incomplete" if a step has not run yet, "defect" if the record says something wrong."""
+    return "incomplete" if any(m in problem for m in INCOMPLETE_MARKERS) else "defect"
+
+
 def validate(rec: dict) -> list[str]:
-    """Every reason this record may not be promoted. Empty means it may."""
+    """Every reason this record may not be promoted. Empty means it may.
+
+    **This gate checks FORM, not TRUTH.** It can see that a measurement carries no number.
+    It cannot see that the number measures the wrong thing — on audit 14 it passed
+    "both produced values [80, 100]", which was measured on a different hook entirely.
+    Of the 8 real defects in that audit the gate caught 1; the adversarial verifier caught
+    7. The gate is necessary and nowhere near sufficient, and nothing here should be read
+    as saying a record that passes is correct.
+    """
     from unstated._manifest import ESTABLISHED
 
     problems: list[str] = []
@@ -153,9 +179,21 @@ def main() -> int:
 
     problems = validate(rec)
     if problems:
-        print(f"\n  REFUSED — {len(problems)} problem(s):")
-        for p in problems:
-            print(f"    - {p}")
+        defects = [p for p in problems if classify(p) == "defect"]
+        pending = [p for p in problems if classify(p) == "incomplete"]
+        print(f"\n  REFUSED — {len(defects)} defect(s), {len(pending)} step(s) not yet done")
+        if defects:
+            print("\n  DEFECTS — the record says something wrong:")
+            for p in defects:
+                print(f"    - {p}")
+        if pending:
+            print("\n  NOT YET DONE — no defect, the audit is unfinished:")
+            for p in pending:
+                print(f"    - {p}")
+        print("\n  Note: this gate checks FORM, not TRUTH. A record that passes is not "
+              "thereby correct —\n  on audit 14 it passed a measurement taken on the wrong "
+              "hook. Adversarial verification\n  caught 7 of the 8 real defects; the gate "
+              "caught 1.")
         return 1
 
     print("\n  validation: passed")

@@ -113,3 +113,40 @@ def test_a_clean_outcome_stages_without_an_entry():
     rec["proposed_verdict"] = "CLEAN"
     rec["proposed_entry"] = None
     assert promote.validate(rec) == []
+
+
+def test_the_gate_separates_a_defect_from_an_unfinished_step():
+    """Both flags on audit 14's first run were genuine, but they were different kinds:
+    "measurement carries no number" is a defect in the record; "verifier has no refuted
+    flag" is a step that had not run yet. Reporting them in one undifferentiated list
+    trains a reader to skim it."""
+    assert promote.classify("measurement 2 ('x') carries no number") == "defect"
+    assert promote.classify("verifier has no refuted flag") == "incomplete"
+    assert promote.classify("no hypotheses registered") == "incomplete"
+    assert promote.classify("hypothesis H1 is not marked registered_before_measuring") == "defect"
+    assert promote.classify("evidence file does not exist: x") == "defect"
+    assert promote.classify("no versions tested — a verdict is only as wide") == "incomplete"
+
+
+def test_every_refusal_the_gate_can_produce_is_classified():
+    """A refusal that falls through to 'defect' by accident would misreport an unfinished
+    audit as a broken one. Every condition validate() can emit is exercised here."""
+    rec = _complete()
+    seen = set()
+    for mutate in (
+        lambda r: r.update(hypotheses=[]),
+        lambda r: r["hypothesis_outcomes"].pop(),
+        lambda r: r["hypotheses"][0].update(registered_before_measuring=False),
+        lambda r: r["measurements"][0].update(result="reproduced"),
+        lambda r: r.update(versions_tested=[]),
+        lambda r: r.update(verifier={}),
+        lambda r: r.update(verifier={"refuted": True, "reason": "x"}),
+        lambda r: r["proposed_entry"].update(span_years=None),
+        lambda r: r["proposed_entry"].update(evidence="docs/nope.md"),
+        lambda r: r.update(proposed_verdict="MAYBE"),
+    ):
+        fresh = json.loads(json.dumps(rec))
+        mutate(fresh)
+        for p in promote.validate(fresh):
+            seen.add(promote.classify(p))
+    assert seen == {"defect", "incomplete"}, f"classification collapsed to {seen}"
