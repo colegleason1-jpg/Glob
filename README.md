@@ -82,6 +82,38 @@ be able to upgrade WebSockets; GitHub → Streamlit Community Cloud with `app/ma
 main file and Python 3.12 is the fast path. Read the three warnings about ephemeral storage,
 default-off authentication, and the default market provider before sharing a public link.
 
+## `unstated/` — the checks, as a library
+
+The findings below are worth something only if they reach the person running the code.
+dateutil's ISO conflict has been [filed since 2017](https://github.com/dateutil/dateutil/issues/402)
+and still silently corrupts 37% of a day-first column today; pandas ships a complete
+remedy for row inflation and leaves it off by default. Knowing is not the gap. Being told,
+on your own data, at the moment it matters, is.
+
+```python
+from unstated import check_dates, check_merge
+
+check_dates(df["signup_date"])          # -> Finding or None
+check_merge(orders, customers, on="customer_id")
+```
+
+```
+[high] pandas.DataFrame.merge
+  assumes : the join key is unique on at least one side
+  tells you: nothing: no exception, no warning, no nulls introduced, dtypes preserved
+             and every value still in range — only the row count and every sum change
+  measured : matching_rows_in=2000, rows_out=4150, inflation=2.08x
+  remedy  : pass validate= to merge (m:1, 1:m or 1:1), or de-duplicate the right frame
+```
+
+Findings are **measured, not predicted** — the report says "36.7% of these 2,000 values",
+not "this can happen". `CATALOGUE` carries four entries so far, each with the cost measured
+when it was added, its upstream status, and a path to the full run.
+
+Half the tests assert the checks stay **silent**: on a spelled-out month column, on a
+many-to-one join, on duplicate keys that never meet. A check that flags everything is
+switched off in its first week and takes the real findings with it.
+
 ## The same defect class, found five times in four codebases
 
 The discipline behind this repository turned out to detect one failure mode repeatedly,
