@@ -192,41 +192,38 @@ def test_an_empty_token_is_not_a_truncation():
     assert check_paginated({"Items": [], "LastEvaluatedKey": {}}) is None
 
 
-def test_every_entry_says_who_gets_the_wrong_thing():
-    """A bug is software not giving its users the correct thing, so every entry has to
-    say who the user is and what they do with it. An entry that stops at "the library
-    behaves this way" is a curiosity; one that says what it does downstream is a finding.
+def test_every_entry_states_the_claim_the_caller_thinks_they_have():
+    """A bug is code telling its user something false about the world they care about.
+
+    So every entry names the sentence the caller believes the return value asserts, and
+    the sentence it actually asserts. An entry that only describes code behaviour has not
+    identified the bug — it has described the mechanism and stopped.
     """
     for entry in CATALOGUE:
         assert entry.impact is not None, f"{entry} has no impact section"
         i = entry.impact
-        assert len(i.mechanism) > 80, f"{entry}: mechanism too thin to be derived"
-        assert any(ch.isdigit() for ch in i.mechanism), (
-            f"{entry}: the mechanism must carry the measured number, not a description"
+        assert i.believed_claim.endswith("."), (
+            f"{entry}: believed_claim should read as a sentence the caller would say"
         )
-        assert i.lands_on and i.scenario and i.detection, entry
+        assert i.believed_claim != i.actual_claim, entry
+        assert any(ch.isdigit() for ch in i.actual_claim), (
+            f"{entry}: the actual claim must carry the measured number, not a description"
+        )
+        assert i.breaks and i.detection, entry
 
 
-def test_scenarios_label_their_assumptions_rather_than_asserting_a_loss():
-    """The scenario is arithmetic a reader redoes with their own numbers. It must never
-    assert what a named party lost, because nobody measured that — an invented figure is
-    the same unmeasured claim this catalogue exists to catch, and it collapses the first
-    time anyone checks it."""
-    import re
-
+def test_consequences_are_not_asserted_about_anyone_in_particular():
+    """The domain is whatever the caller's domain is — oranges, prescriptions, files,
+    money. What an entry must never do is assert what a named party experienced, because
+    nobody measured that. An invented consequence is the same unmeasured claim this
+    catalogue exists to catch, and it collapses the first time somebody checks it.
+    """
     for entry in CATALOGUE:
-        s = entry.impact.scenario
-        assert "Arithmetic:" in s, f"{entry}: scenario does not show its working"
-        for forbidden in ("$", "€", "£"):
-            assert forbidden not in s, (
-                f"{entry}: scenario states a currency figure; the reader supplies those"
-            )
-        # A scenario may be fully parametric — the pandas entry is, and that is the ideal.
-        # Only one that invents a magnitude the reader did not supply has to label it. A
-        # comma-formatted number is the tell: 2.02x is measured, 50,000 rows is chosen.
-        invented = re.findall(r"\b\d{1,3}(?:,\d{3})+\b", s)
-        if invented:
-            assert "illustrative" in s, (
-                f"{entry}: scenario invents the magnitude(s) {invented} without labelling "
-                "them illustrative"
+        text = entry.impact.breaks
+        assert len(text) > 120, f"{entry}: breaks is too thin to have been thought through"
+        # Stated as what stops being true, not as a loss someone suffered.
+        for invented in ("cost them", "lost them", "would lose", "costs the industry",
+                         "millions", "billions"):
+            assert invented not in text.lower(), (
+                f"{entry}: breaks asserts a consequence nobody measured ({invented!r})"
             )

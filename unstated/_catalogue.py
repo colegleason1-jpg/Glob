@@ -12,22 +12,25 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Impact:
-    """What the wrong answer does to the people downstream of the library.
+    """What the software told its user, and what was actually true.
 
-    A bug is not a property of software; it is software not giving its users the correct
-    thing. So every entry records who gets the wrong thing and what they do with it.
+    A bug is not a property of code. It is code telling its user something false about the
+    world the user cares about. So an entry does not stop at "the library behaves this
+    way" — it records the sentence the caller believes they are holding, the sentence they
+    are actually holding, and what stops being true downstream.
 
-    The discipline here matters as much as anywhere else in this catalogue. ``mechanism``
-    is *derived* from the measurement and is not negotiable. ``scenario`` is arithmetic
-    the reader can redo with their own numbers, and its inputs are labelled illustrative —
-    it never asserts what a given company loses, because nobody measured that. An invented
-    dollar figure would be exactly the unmeasured claim this whole exercise exists to
-    catch, and it would collapse the first time somebody checked it.
+    The domain is whatever the caller's domain is. A count of oranges that should be zero
+    and reads two is the same failure as a revenue total that doubles: the system asserted
+    a fact about the world and the fact was wrong. Money is one instance, not the measure.
+
+    Every field must be **derivable from the measurement**. Nothing here asserts what a
+    named party experienced, because nobody measured that — an invented consequence is the
+    same unmeasured claim this catalogue exists to catch.
     """
 
-    mechanism: str        #: what the wrong number does downstream, derived from the measurement
-    lands_on: str         #: the function or role that receives it
-    scenario: str         #: parameterised arithmetic; inputs illustrative, method exact
+    believed_claim: str   #: the sentence the caller thinks the return value asserts
+    actual_claim: str     #: the sentence it actually asserts, with the measured number
+    breaks: str           #: what stops being true downstream, across domains
     detection: str        #: would anyone notice, and when
 
 
@@ -61,30 +64,26 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         upstream_status="filed: dateutil/dateutil#402, open since 2017",
         evidence="docs/cold-test-dateutil.md",
         impact=Impact(
-            mechanism=(
-                "37.2% of rows carry a date a median 118 days from the truth, and every "
-                "one is a valid date in the right year. Anything bucketed by time is "
-                "therefore built on rows that landed in the wrong bucket: ageing "
-                "brackets, cohort membership, reporting periods, retention windows, "
-                "anything with a cut-off date."
+            believed_claim="This row happened on this date.",
+            actual_claim=(
+                "This row happened on one of two dates, and which one was decided per "
+                "string by whether the first number exceeded 12. Measured: 37.2% of a "
+                "day-first column carries the other date, a median 118 days away, and "
+                "95% of the rows that are right are right only by that accident."
             ),
-            lands_on=(
-                "receivables and ageing reports, SLA and breach calculations, cohort and "
-                "retention analysis, and any regulatory return defined over a period"
-            ),
-            scenario=(
-                "Arithmetic: with an ambiguity rate r on N dated rows, r*N rows move by "
-                "the day/month gap. At the measured r=0.372, a 50,000-row ledger "
-                "(illustrative) puts roughly 18,600 rows in the wrong period, median 118 "
-                "days out. A receivable dated 10/03 read as 03/10 moves between ageing "
-                "brackets in both directions, so the buckets do not merely shift — they "
-                "cross-contaminate, and the totals still sum to the correct grand total."
+            breaks=(
+                "Anything that puts a record in a bucket by when it happened. An invoice "
+                "moves between ageing brackets; a patient visit moves between reporting "
+                "periods; a shipment moves between quarters; a consent record moves "
+                "across a retention cut-off. The buckets do not shift together — records "
+                "cross in both directions, so each bucket is contaminated by the other "
+                "while the grand total still reconciles."
             ),
             detection=(
                 "Poor. Every value is a valid date in the same year, so range, dtype and "
-                "null checks all pass and the grand total reconciles. It surfaces only "
-                "when a human recognises one specific date as wrong, and most of the "
-                "wrong ones are plausible."
+                "null checks pass and the total is unchanged. It surfaces only when a "
+                "human recognises one specific date as wrong, and most of the wrong ones "
+                "are perfectly plausible."
             ),
         ),
     ),
@@ -102,31 +101,26 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         upstream_status="guarded: validate= exists and defaults to None",
         evidence="docs/cold-test-pandas.md",
         impact=Impact(
-            mechanism=(
-                "Row count multiplies by the product of duplicate keys on each side, so "
-                "every SUM and COUNT over the joined frame inflates by the same factor "
-                "while every MEAN stays close to correct. The measured case was 2.02x "
-                "rows and +105.4% on the summed column against +1.6% on its mean."
+            believed_claim="There are this many of these, and they total this much.",
+            actual_claim=(
+                "There are this many matches multiplied by the duplicate keys on the "
+                "other side. Measured: 2.02x the rows, +105.4% on the summed column, "
+                "+1.6% on its mean."
             ),
-            lands_on=(
-                "any reported aggregate: revenue and bookings, exposure and position "
-                "totals, headcount, claim volumes, units shipped — and anything computed "
-                "from them, including per-unit costs and ratios whose numerator and "
-                "denominator inflate unequally"
-            ),
-            scenario=(
-                "Arithmetic: reported total = true total x (rows_out / matching_rows_in). "
-                "At the measured 2.02x, a reported figure of any size is roughly double "
-                "the truth. The inverse matters as much: a team that trusts the total and "
-                "divides by a correct row count elsewhere gets a per-unit figure half what "
-                "it should be. Plug in your own rows_out and matching_rows_in — both come "
-                "out of check_merge before the join runs."
+            breaks=(
+                "Every count and every total computed from the joined result. If the rows "
+                "are oranges, you report twice the oranges you have; if they are "
+                "prescriptions, twice the prescriptions; if they are transactions, twice "
+                "the money. And the inverse bites just as hard — a correct denominator "
+                "from elsewhere divided into the inflated total halves every per-unit "
+                "figure. Anything reconciled downstream against a physical count, a bank "
+                "statement or a stock take now disagrees with reality by the inflation "
+                "factor."
             ),
             detection=(
-                "Poor, and worse than it looks. The mean moved only +1.6%, so the usual "
+                "Poor, and worse than it looks. The mean moved +1.6%, so the habitual "
                 "sanity check — does the average look right — passes while the total has "
-                "doubled. Caught only by reconciliation against an independent source, "
-                "if one exists."
+                "doubled. Caught only by reconciliation against an independent source."
             ),
         ),
     ),
@@ -147,31 +141,28 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         ),
         evidence="docs/cold-test-smote.md",
         impact=Impact(
-            mechanism=(
-                "Resampling changes the training base rate, so the fitted intercept "
-                "shifts and every predicted probability is inflated. Measured: 0.358 "
-                "predicted against a 0.015 base rate, a 23.85x overstatement, while the "
-                "unresampled model was accurate to within 1%. Ranking is roughly "
-                "preserved; the numbers are not."
+            believed_claim="There is a p chance this case is positive.",
+            actual_claim=(
+                "There is a p chance under a training set whose positives were "
+                "synthetically multiplied, so p is inflated. Measured: 0.358 predicted "
+                "against a 0.015 base rate — 23.85x — while the unresampled model was "
+                "accurate to within 1%. The ORDER of the cases is roughly preserved; the "
+                "numbers are not."
             ),
-            lands_on=(
-                "anything that consumes the probability rather than the ranking: expected "
-                "loss and expected value calculations, cost-weighted decision thresholds, "
-                "capacity planning from expected volumes, and any figure reported as a "
-                "risk or a rate to a committee or a regulator"
-            ),
-            scenario=(
-                "Arithmetic: expected value = p x outcome. An inflation factor of f "
-                "multiplies every expected-value figure by f. At the measured f=23.85 "
-                "(1% prevalence), a book of 100,000 cases (illustrative) with a true "
-                "expected event count of 1,500 is reported as roughly 35,800. A threshold "
-                "chosen to act above a 20% probability fires on cases whose true "
-                "probability is under 1%."
+            breaks=(
+                "Everything that multiplies the number by something rather than sorting "
+                "by it. Expected counts: a warehouse told 36% of pallets will spoil "
+                "provisions for a loss that happens to 1.5%. Thresholds tied to a real "
+                "quantity: 'act when probability exceeds 20%' fires on cases whose true "
+                "probability is under 1%. Any figure reported as a rate to a committee, "
+                "an auditor or a customer. Ranking survives, so a review queue ordered by "
+                "score is unaffected — which is why the damage is invisible to teams that "
+                "only ever look at the ordering."
             ),
             detection=(
-                "Poor. ROC-AUC is unchanged and PR-AUC moves only single digits, so the "
-                "metrics normally reported look fine. Calibration is rarely monitored, "
-                "and the probabilities remain in [0,1] and sum sensibly."
+                "Poor. ROC-AUC is unchanged and PR-AUC moves single digits, so the "
+                "reported metrics look fine. Calibration is rarely monitored, and the "
+                "probabilities stay in [0,1] and sum sensibly."
             ),
         ),
     ),
@@ -189,29 +180,24 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         upstream_status="unstated: the docstring gives no precondition",
         evidence="docs/cold-test-optuna.md",
         impact=Impact(
-            mechanism=(
-                "Pruning kills trials on early performance. When early rank does not "
-                "predict final rank the surviving trials are the wrong ones, so the "
-                "selected configuration is not the best one searched. Measured: +6379% on "
-                "the objective, on 12 of 12 seeds, while saving MORE compute than in the "
-                "favourable case."
+            believed_claim="This is the best configuration found in the search.",
+            actual_claim=(
+                "This is the best of the trials that survived early stopping, which "
+                "selected on a signal uncorrelated with the outcome. Measured: +6379% on "
+                "the objective, 12 of 12 seeds, while saving MORE compute than in the "
+                "favourable case (63% vs 51%)."
             ),
-            lands_on=(
-                "model selection — the configuration that gets deployed. Also anyone "
-                "reading a tuning run as evidence that a search space was explored"
-            ),
-            scenario=(
-                "Arithmetic: the reported best is the best of the SURVIVING trials, not "
-                "of those started. With a prune rate q on T trials, the search that "
-                "actually happened is over (1-q)T candidates, chosen by a criterion "
-                "uncorrelated with the objective. At the measured q=0.63 on 200 trials "
-                "(illustrative), 126 candidates were discarded on a signal that did not "
-                "predict the outcome, and the search space is smaller than the number in "
-                "the write-up."
+            breaks=(
+                "The claim that a search space was explored. The write-up says 200 "
+                "candidates were tried; at the measured prune rate 126 were discarded on "
+                "evidence that did not predict the result, so the search that happened "
+                "was over 74. Whatever the configuration controls — a routing policy, a "
+                "dosing schedule, a picking order in a warehouse — the deployed one is "
+                "not the best one searched, and the record says it is."
             ),
             detection=(
-                "Only by re-running without the pruner and comparing — which nobody does, "
-                "because the run completed, reported a best value, and was faster."
+                "Only by re-running without the pruner and comparing, which nobody does: "
+                "the run completed, reported a best value, and was faster."
             ),
         ),
     ),
@@ -232,30 +218,25 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         ),
         evidence="docs/cold-test-sklearn.md",
         impact=Impact(
-            mechanism=(
-                "A random split puts the same subject on both sides, so the test set "
-                "measures memorisation. Measured: accuracy overstated 14.8% and ROC-AUC "
-                "9.5%, on 12 of 12 trials, with 92% of subjects present in both splits "
-                "and zero identical rows."
+            believed_claim="This model gets it right this often on cases it has not seen.",
+            actual_claim=(
+                "This model gets it right this often on cases from subjects it trained "
+                "on. Measured: 92% of subjects present in both splits with zero identical "
+                "rows, accuracy overstated 14.8% and ROC-AUC 9.5%, on 12 of 12 trials."
             ),
-            lands_on=(
-                "every reported model performance number: validation reports, model risk "
-                "documentation, go/no-go deployment decisions, vendor and internal "
-                "benchmarks, and anything a regulator is shown as evidence a model works"
-            ),
-            scenario=(
-                "Arithmetic: the reported score is on a test set whose subjects the model "
-                "trained on. The measured gap is the overstatement — 0.9472 reported "
-                "against 0.8250 real. A threshold set to hold a false-positive rate at "
-                "the reported performance will miss it in production by roughly that "
-                "margin, and the shortfall arrives as a slow drift that gets attributed "
-                "to the data rather than the split."
+            breaks=(
+                "Every downstream commitment made against the number. A staffing level "
+                "sized to the reported error rate; a threshold chosen to hold a "
+                "false-positive rate; an acceptance gate a model passed; a claim to a "
+                "regulator, a customer or a committee that the system performs at a "
+                "stated level. The shortfall appears only after deployment, at roughly "
+                "the measured gap, and arrives looking like drift."
             ),
             detection=(
                 "The failure looks like SUCCESS, which is the worst case in this "
                 "catalogue. A model scoring 0.95 instead of 0.83 does not get "
-                "investigated. It surfaces as unexplained underperformance after "
-                "deployment, usually blamed on drift."
+                "investigated. It surfaces as unexplained underperformance in production, "
+                "usually blamed on the data."
             ),
         ),
     ),
@@ -280,30 +261,28 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         ),
         evidence="docs/cold-test-boto3.md",
         impact=Impact(
-            mechanism=(
-                "The first page is returned and the job succeeds. Measured: 1,000 of "
-                "2,500 S3 objects (40%), and 49 of 400 DynamoDB rows (12%) once rows "
-                "widened to 20 KB. Every downstream step then runs to completion over a "
-                "subset, reporting success."
+            believed_claim="These are the things that are there.",
+            actual_claim=(
+                "These are the first page of things that are there, and the page size is "
+                "not a property you chose. Measured: 1,000 of 2,500 S3 objects (40%), and "
+                "49 of 400 DynamoDB rows (12%) once rows widened to 20 KB — the same code "
+                "against the same table."
             ),
-            lands_on=(
-                "backup and archival jobs, retention and deletion sweeps, cost and "
-                "inventory reporting, data pipelines enumerating their own input, and "
-                "compliance scans that enumerate objects to attest they were checked"
-            ),
-            scenario=(
-                "Arithmetic: coverage = page_size / true_count for S3, and for DynamoDB "
-                "coverage = (1 MB / mean_item_bytes) / true_count, which moves whenever "
-                "the rows get wider. A scan attesting that every object in a bucket was "
-                "checked, run against 2,500 objects (illustrative), checked 1,000 and "
-                "reported completion. A retention sweep deletes the first page and leaves "
-                "the rest, so the job looks idempotent and never converges."
+            breaks=(
+                "Any statement of completeness. A backup that reports success holds 40% "
+                "of the files. A stock take enumerating bins counts the first thousand "
+                "and reports a total. A retention sweep deletes a page, leaves the rest, "
+                "and looks idempotent while never converging. A compliance scan attests "
+                "that every object was checked, having checked 40% — and the attestation "
+                "is the product. The DynamoDB form is worse: the coverage moves when "
+                "someone adds a column, so a job that was complete last quarter is not "
+                "this quarter, with no change to the code."
             ),
             detection=(
-                "Very poor, and the DynamoDB case has no learnable ceiling: the count "
-                "returned moves with row width, so the same code silently degrades when "
-                "someone adds a column. Nothing raises, the exit status is zero, and a "
-                "compliance attestation of completeness is produced over 40% of the data."
+                "Very poor, and there is no ceiling to learn: S3 stops at a round 1,000 "
+                "that someone might eventually recognise, DynamoDB stops at 1 MB so the "
+                "count varies with row width. Nothing raises, the exit status is zero, "
+                "and the job reports completion."
             ),
         ),
     ),

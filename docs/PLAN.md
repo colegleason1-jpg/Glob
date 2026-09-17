@@ -44,8 +44,39 @@ reviewable, and re-runnable against a new library version.
    thing — so an entry that stops at "the library behaves this way" is a curiosity, not a
    finding.
 
+7. **State the claim.** What sentence does the caller believe the return value asserts,
+   and what sentence does it actually assert? A bug is not a property of code — it is
+   code telling its user something false about the world they care about. An entry that
+   stops at "the library behaves this way" has described a mechanism and stopped short of
+   the bug.
+
 Step 3 is the gate. A component that raises is not a catalogue entry, however wrong the
 caller was.
+
+### The impact section
+
+Four required parts, enforced by test:
+
+| part | what it is |
+| --- | --- |
+| **believed claim** | the sentence the caller thinks they are holding — *"these are the things that are there"* |
+| **actual claim** | the sentence they are actually holding, carrying the measured number |
+| **breaks** | what stops being true downstream |
+| **detection** | would anyone notice, and when |
+
+**The domain is whatever the caller's domain is.** A count of oranges that should read
+zero and reads two is the same failure as a revenue total that doubles: the system
+asserted a fact about the world and the fact was wrong. Money is one instance, not the
+measure — so `breaks` spans domains rather than reaching for currency.
+
+**What it never does is assert what a named party experienced.** Nobody measured that. An
+invented consequence — "this costs the industry millions" — is precisely the unmeasured
+claim this catalogue exists to catch, and it collapses the first time somebody checks it.
+Everything in the section is derivable from the run that produced the entry.
+
+This is also what makes the catalogue indexable for writing later. The entries worth an
+article are the ones where **detection** is poor and the **believed claim** is one
+somebody signs their name to.
 
 ### The impact section, and its one rule
 
