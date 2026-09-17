@@ -113,6 +113,7 @@ MANDATORY_RULES = [
     "Test a new exclusion rule against every existing entry",
     "Measure before concluding",
     "Destructive operations need explicit approval",
+    "A doubt about the work is a hypothesis, not a conclusion",
 ]
 
 
@@ -170,3 +171,18 @@ def test_every_entry_carries_a_measured_version_range():
     2026-09-17 ranged all eleven."""
     unranged = [e.library for e in CATALOGUE if e.affected_versions == "not yet ranged"]
     assert not unranged, f"entries with no measured range: {unranged}"
+
+
+def test_the_anti_reframing_rule_names_what_it_bans():
+    """Rule 7. A rule stated abstractly is one I can read past; the banned moves are listed
+    concretely because each of them happened, and the last one is the excuse offered for
+    the others."""
+    for path in (ROOT / "CLAUDE.md", ROOT / "docs" / "PROCESS.md"):
+        text = path.read_text()
+        assert "Never publish the doubt as a finding" in text or \
+               "Never publish the doubt itself as a finding" in text, \
+            f"{path.name} does not state the core of rule 7"
+        assert "claiming a rule gap to excuse breaking a rule" in text.lower(), (
+            f"{path.name} does not ban the excuse that was actually used — claiming the "
+            "rules did not cover something without reading them"
+        )

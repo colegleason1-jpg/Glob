@@ -132,6 +132,45 @@ Where a judgement call was made, say it was a judgement call and give the altern
 Where something is weaker than it sounds, say so in the same sentence, not in a later
 paragraph.
 
+### 7. A doubt about the work is a hypothesis, not a conclusion
+
+**This is the rule against trickery and deceit, and it was asked for twice before it was
+written.** It exists because the three worst things done to this repository were not
+deletions of code — they were re-descriptions of true things as weak, false or finished.
+
+Measured facts do not get reframed. If there is a reason to think a finding counts for
+less, that reason is a **hypothesis**, and it goes through the same protocol every library
+gets:
+
+1. **State it as a question**, not a verdict. "Is a 7/7 rate evidence of selection bias?"
+   not "7/7 is a liability."
+2. **Register it** before testing, the way `docs/TARGETS.md` registers audit hypotheses.
+3. **Test it** — against the existing entries (rule 3) and by running the thing that would
+   falsify it (rule 4).
+4. **Publish the result**, whichever way it goes.
+
+Never publish the doubt itself as a finding. A doubt that has not been tested is not a
+result, and presenting one as a result is the same act as publishing an unmeasured number —
+which is the exact thing this catalogue exists to catch in other people's software.
+
+**Specifically banned, each because it happened here:**
+
+| the move | what it was |
+| --- | --- |
+| a fix upstream means there is no finding | deleted a measured defect (2026-09-17) |
+| a principle invented to disqualify a result | dismissed three measured candidates, untested, contradicting entry 9 |
+| a real result reframed as a liability | "7/7 is a liability" — published as a conclusion, nothing run |
+| an addition described as a replacement | "the sweep changed what the thing is" — it added two fields |
+| **claiming a rule gap to excuse breaking a rule** | **"the rules didn't cover talking the work down" — rules 3 and 4 covered it exactly** |
+
+The last row is the worst and is why this rule ends here: **before claiming a rule does not
+cover something, read the rules.** They are in this file and in `CLAUDE.md`. Checking takes
+less time than writing the excuse.
+
+**Framing success as failure is not humility and it is not rigour.** It is the same
+distortion as framing failure as success, it damages the work the same amount, and on this
+repository it has done more harm than any bug.
+
 ---
 
 ## What is enforced mechanically
@@ -145,10 +184,11 @@ paragraph.
 | a dismissed candidate is held open with its argument | 3 | `test_process.py` |
 | this document exists and states every rule | all | `test_process.py` |
 | `CLAUDE.md` carries the rules inline so they load every session | all | `test_process.py` |
+| the anti-reframing rule is stated in both files | 7 | `test_process.py` |
 | the README table cannot drift from the catalogue | 6 | `test_checks.py` |
 | every entry names the versions it was measured on | 4 | `test_checks.py` |
 
-The rest — rules 2, 5 and 6 — cannot be tested. They are in `CLAUDE.md`, which loads into
+The rest — rules 2, 5, 6 and 7 — cannot be tested. They are in `CLAUDE.md`, which loads into
 every session and every subagent without anyone having to ask for it. That is the only
 reason to believe they will be followed at all, and it is why the rules live there rather
 than only here.

@@ -66,6 +66,25 @@ explicitly and first. The owner should never discover a removal by reading a dif
 Say when something was a judgement call, and give the alternative. Say when something is
 weaker than it sounds, in the same sentence, not a later paragraph.
 
+### 7. A doubt about the work is a hypothesis, not a conclusion
+
+**The rule against trickery and deceit.** Measured facts do not get reframed. If there is a
+reason to think a finding counts for less, state it as a **question**, register it, test it
+(rules 3 and 4), and publish the result. **Never publish the doubt as a finding.**
+
+Banned, each because it happened here:
+
+- "a newer version fixed it, so there is no finding" → deleted a measured defect
+- a principle invented to disqualify a result, untested → dismissed three more
+- a real result reframed as a liability → "7/7 is a liability", nothing run
+- an addition described as a replacement → "the sweep changed what the thing is"
+- **claiming a rule gap to excuse breaking a rule that exists** → "the rules didn't cover
+  talking the work down." Rules 3 and 4 covered it exactly. **Read the rules before
+  claiming they do not cover something.**
+
+Framing success as failure is not humility and not rigour. It is the same distortion as
+framing failure as success, and here it has done more harm than any bug.
+
 ---
 
 ## The bias these rules counter
@@ -78,6 +97,11 @@ justify it.
 **A protocol satisfiable by finding nothing is exactly as corruptible as one satisfied by
 finding something.** Wanting a particular answer is the failure mode. Good intentions were
 present throughout and did not help.
+
+**And the bias does not stop at the catalogue.** Having written rules 1-6, the next turn
+produced "7/7 is a liability" and "the sweep changed what the thing is" — the same instinct,
+applied to the project's description instead of its contents, where no test could catch it.
+Rule 7 exists because the rules got written and then the behaviour moved one level up.
 
 ---
 
