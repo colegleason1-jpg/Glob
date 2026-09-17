@@ -97,18 +97,62 @@ all.
 exactly at 26.0. The verifier could not dent the range, which is the part the sweep
 produced.
 
+### requests — **16 defects**, against audit 14's 8
+
+Verified by me directly:
+
+| claim | measured |
+| --- | --- |
+| **the published remedy is wrong ~43% of the time** | `unstated/checks/encoding.py` tells the caller to `set r.encoding = r.apparent_encoding`, *"correct on 12 of 12 measured UTF-8 bodies."* On 58 realistic short UTF-8 bodies: **correct 33/58 (56.9%), wrong 25/58 (43.1%)**. Every failure is valid UTF-8 — `'£5'`→big5, `'€9'`→utf_16_le, `'•'`→cp037, `'½'`→big5. The verifier measured 23% wrong on its corpus; mine is worse. |
+| the `12/12` rests on an unpublished corpus | `cold-test-requests.md:55` says *"12 UTF-8 bodies"* and never lists them. No probe script was committed. **The entry's headline cannot be audited by a reader.** |
+| `'£5'` → big5 | Confirmed: `b'\xc2\xa35'` → `big5` → `'瞿5'`, does not round-trip, at charset-normalizer 3.3.2, 3.4.6 and 3.5.1. |
+
+**A previous verifier raised `'£5'` and I rejected it**, on the grounds that it belongs to
+the character-count table rather than the `apparent_encoding` corpus. That distinction is
+true of what I ran and **appears nowhere in the published document** — line 55 presents "12
+UTF-8 bodies" under one heading and line 116 prints `'£5'` as a body. My defence rested on a
+corpus only I could see. Rejecting it was the wrong call.
+
+Also reported with evidence: *"byte-identical in 82 of the 83 non-prerelease 2.x releases"*
+is false — **17 of 82** are byte-identical, 65 use single quotes, and the "83rd" (2.15.0)
+has no files on PyPI so it cannot be checked at all. `get_encoding_from_headers` has 6
+distinct bodies across the span, not one. The check's charset guard is a substring test
+where requests uses a parsed-key test, so four Content-Types mojibake while the check stays
+silent. The check fires on a genuinely Latin-1 body where requests is **right**, and fires
+again *after its own remedy is applied*, contradicting its own `observed` field.
+
+**What survived:** the defect itself, entirely. The content-type table 11/11, the
+character-count table 5/5 with exact mojibake strings, the lookups table, `r.json()` and
+`iter_lines` inheritance, the truncation arithmetic, the `VARCHAR(20)` example, the 2.25.1
+`application/json` boundary, and both PyPI endpoint dates.
+
 ### Reading it against the registered rule
 
-13 > 8 is the "more than 8" branch: **evidence that the production controls help**, because
-the two registered confounds both push the other way.
+**packaging 13, requests 16, against audit 14's 8.** Both land in the "more than 8" branch:
+evidence that the production controls help, because the two registered confounds both push
+the other way.
 
 **But an unregistered confound exists and it is named here rather than buried.** The counts
-come from different verifier agents with different methods. The packaging verifier ran 21
-mutants and harvested 502,053 real pairs; audit 14's verifiers did neither. **Some of the
-13-vs-8 gap is verifier effort, not draft quality, and nothing in this design separates
-them.** With n=1 on each side, the honest statement is that the result points in the
-predicted direction and is not yet a rate. Two more verifications (`requests`, `urllib3`)
-were still running when this was written.
+come from different verifier agents. Both old-entry verifiers ran mutation testing; audit
+14's round-1 verifier did not. **Some of the gap is verifier effort, not draft quality, and
+nothing in this design separates them.**
+
+**The least-confounded number available is the mutation score**, because it measures the
+entry's own test suite rather than how hard the verifier looked:
+
+| check's test suite | mutation score |
+| --- | --- |
+| `packaging` (old process) | **43%** — 9 of 21 mutants killed |
+| `requests` (old process) | **28%** — 7 of 25 mutants killed |
+| `pluggy` (new process, after rework) | **~70%** — 3 of 10 survived |
+
+Those are the verifiers' measurements, not mine, and the mutant sets differ. But they point
+the same way as the defect counts and do not depend on verifier thoroughness. A crippled
+`requests` check that is silent on Cyrillic, Greek, Hebrew, Arabic, Thai, Korean and emoji
+**passes all 8 published tests** — every non-ASCII fixture in that suite is Latin-1-range
+plus one Japanese string.
+
+`urllib3` was still running when this was written.
 
 ### Separately — and this is not about process
 
