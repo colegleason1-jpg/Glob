@@ -26,14 +26,29 @@ def _complete():
     return rec
 
 
-def test_the_real_staged_record_is_complete_but_for_its_verifier():
-    """Audit 14 as staged: the only thing standing between it and promotion is the
-    verifier verdict. If this starts failing, the record drifted."""
+def test_audit_14_is_refuted_and_cannot_be_promoted():
+    """Audit 14 was the pilot for the staged pipeline, and its verifier REFUTED it — the
+    mechanism was wrong (pluggy short-circuits, it does not discard), the ordering rule was
+    wrong, two "no API exists" claims were false, a release date was wrong, and the check
+    fires at high severity on a stock pytest with no third-party plugins.
+
+    Every one of those was re-measured directly before being accepted; see owner_review in
+    the record. This test holds the gate shut until the rework is done.
+    """
     rec = json.loads((ROOT / "staging" / "audit-014-pluggy.json").read_text())
-    problems = promote.validate(rec)
-    assert all("verifier" in p or "REFUTED" in p for p in problems), (
-        f"audit 14 has problems beyond its missing verdict: {problems}"
-    )
+    assert rec["verifier"]["refuted"] is True
+    assert rec["owner_review"]["verdict"].startswith("DO NOT PROMOTE")
+    assert len(rec["owner_review"]["confirmed"]) >= 7
+    assert promote.validate(rec), "a refuted record must not validate"
+
+
+def test_pluggy_is_not_in_the_catalogue():
+    """The pilot's whole point. A refuted audit leaves no trace in the catalogue."""
+    from unstated import CATALOGUE
+    from unstated._manifest import ESTABLISHED
+
+    assert not any(e.library == "pluggy" for e in CATALOGUE)
+    assert not any(k.startswith("pluggy|") for k in ESTABLISHED)
 
 
 def test_a_complete_record_is_accepted():

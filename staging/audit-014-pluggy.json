@@ -122,8 +122,12 @@
       "evidence": "raises ValueError to the caller \u2014 the library tells you. Recorded, not catalogued."
     }
   ],
-  "proposed_verdict": "FINDING",
-  "verifier": {},
+  "proposed_verdict": "REFUTED-PENDING-REWORK",
+  "verifier": {
+    "refuted": true,
+    "reason": "Central phenomenon real and broader than claimed, but the stated MECHANISM is wrong, the ordering rule is wrong, two 'no API exists' claims are false, one release date is wrong, and the check fires HIGH on stock pytest with zero third-party plugins.",
+    "corrected_claim": "pluggy firstresult: when more than one registered plugin can answer, the hook returns the answer of whichever impl pluggy reaches first and NEVER CALLS THE OTHERS \u2014 they do not run, so their answers are not computed and their side effects do not occur. Order is decided by pluggy's six buckets (tryfirst -> plain -> trylast, wrappers first within each), and WITHIN a bucket by registration order: later-registered wins among tryfirst and plain, EARLIER-registered wins among trylast. Measured at all 17 releases 0.6.0 (2017-11-24) through 1.6.0 (2025-05-15), 7.5 years, exhaustive over the span, and also at 0.3.0 and 0.4.0 \u2014 so 0.6.0 is the earliest measured, not the onset. The value carries no provenance and nothing warns at call time, but it CAN be investigated after the fact: get_hookimpls() + spec.opts identifies a contested hook, add_hookcall_monitoring passes the full impl list to before and after, and subset_hook_caller(name, remove_plugins=[winner]) returns the loser's answer."
+  },
   "proposed_entry": {
     "library": "pluggy",
     "component": "firstresult hookspecs",
@@ -144,5 +148,20 @@
       "breaks": "Whatever the hook was deciding, differently per installation. A plugin architecture exists so behaviour can be extended \u2014 a price resolved, a route chosen, a record classified. When two extensions both answer, one silently loses, and which one depends on what else is installed and in what order. The same application, same code, same inputs gives a different answer on a machine where one extra plugin is present. The returned value carries no provenance, so the answer cannot be traced even after someone notices it changed.",
       "detection": "Very poor, and it fails in the direction that looks like success. No exception, no warning, no API reporting a contested hook. A single-plugin development environment behaves correctly and deterministically; the ambiguity appears only once a second plugin answering the same hook is installed, which is exactly when nobody is looking at that hook. Adding an unrelated plugin can change an answer elsewhere in the system."
     }
+  },
+  "owner_review": {
+    "reviewed_by": "Claude, independently re-measured \u2014 not adopted on the verifier's word",
+    "date": "2026-09-17",
+    "confirmed": [
+      "only one impl runs: registering catalogue,promotion gave value=80 and impls_that_ran=['promotion']. My 'both produced values [80, 100]' was measured on collect_price, a NON-firstresult hook, and presented as what firstresult discards.",
+      "LIFO is wrong: all-plain -> C,B,A; all-tryfirst -> C,B,A; all-trylast -> A,B,C (FIFO). pluggy's own _hooks.py comment documents six buckets iterated in reverse.",
+      "subset_hook_caller(remove_plugins=[winner]) returned 100, the loser's answer, through the public API.",
+      "add_hookcall_monitoring passed ['catalogue','promotion'] to BOTH before and after. My probe's callback stored only outcome.get_result(), so I measured my own callback and concluded the API could not show me the contestants.",
+      "0.6.0 release date: earliest upload 2017-11-24; 2018-04-15 is a LATER FILE on the same release. My fetch took releases[v][0] from an unordered list. span_years 7.1 is computed from the wrong date; 7.5 is correct.",
+      "check fires severity=high on stock pytest 9.1.1 with zero third-party plugins: 11 contested first-result hooks. pytest_runtest_protocol is 5 impls of which 4 are WRAPPERS that cannot answer.",
+      "answers_discarded_per_call is fabricated: with 3 answering plugins it reports 2; the measured number of impls that ran is 1 and answers discarded is 0. A wrong number in an observed field is the exact thing this catalogue exists not to do."
+    ],
+    "not_adopted": [],
+    "verdict": "DO NOT PROMOTE. The finding is real; the write-up and the check are not fit to publish."
   }
 }
