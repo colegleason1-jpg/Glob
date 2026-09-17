@@ -68,7 +68,8 @@ Audits 1–6 are recorded for completeness and are explicitly **outside** the pr
 | 10 | **urllib3** | **protocol, rank 6** | yes (pre-registered) | **FINDING** | `cold-test-urllib3.md` |
 | 11 | **requests** | **protocol, rank 7** | yes (pre-registered) | **FINDING** | `cold-test-requests.md` |
 | 12 | **charset-normalizer** | **protocol, rank 8** | yes (pre-registered) | **FINDING** | `cold-test-charset-normalizer.md` |
-| 13 | cryptography | protocol, rank 10 | yes (pre-registered) | tbd | — |
+| 13 | **cryptography** | **protocol, rank 10** | yes (pre-registered) | **CLEAN — 13 probes, 9 correct or loud** | `cold-test-cryptography.md` |
+| 14 | pluggy | protocol, rank 12 | yes (pre-registered) | tbd | — |
 
 Note that audit 2 is already a clean pass. It was published as one, and that is the
 precedent this register formalises.
@@ -88,12 +89,26 @@ Recorded now, before any of them is audited.
 | 7 | requests | **yes** | encoding detection, redirect and session behaviour branch on response properties — **audited, FINDING** |
 | 8 | charset-normalizer | **yes** | its entire job is inferring an assumption about caller-supplied bytes — **audited, FINDING** |
 | 9 | setuptools | **no** | build-time metadata; no runtime data surface |
-| 10 | cryptography | **yes** | key and certificate handling branches on properties of supplied material — **next** |
+| 10 | cryptography | **yes** | key and certificate handling branches on properties of supplied material — **audited, CLEAN** |
 
-Running rate under the protocol: **6 eligible audited, 6 FINDINGS.** Ranks 3 and 4
-(typing-extensions, certifi) were pre-registered ineligible and are skipped on the record,
-not silently. Six is still not a rate, and the expectation remains that it falls — the
-value of this register is that when it does, the denominator is already written down.
+Running rate under the protocol: **7 eligible audited, 6 FINDINGS, 1 CLEAN.** Ranks 3
+and 4 (typing-extensions, certifi) were pre-registered ineligible and are skipped on the
+record, not silently.
+
+**The predicted decline arrived at audit 13.** cryptography (PyCA) came back CLEAN after
+thirteen probes, nine of which found the library raising, warning or simply behaving
+correctly. It was written down before audit 7 that the rate would fall and that the fall
+would be published rather than smoothed; this is that, and it arrived at the most carefully
+maintained library on the list, which is where it should.
+
+The CLEAN also did more work than a finding would have. It forced the catalogue's boundary
+to be stated:
+
+> An entry is an assumption a library makes **about your data**, that you were never asked
+> about. `Fernet(ttl=None)` is a question you **were** asked, at the call site, by name, and
+> answered by omission. That is not an entry, however sharp the consequence.
+
+Applying that line instead of stretching for an eleventh entry is what the register is for.
 
 **Hypotheses are now registered per audit, not just eligibility.** Audit 12 wrote down four
 before measuring and **two did not reproduce** (input length, chunked sampling). Both are
@@ -108,7 +123,7 @@ cannot be fitted to the results later:
 | rank | package | eligible | reasoning |
 | --- | --- | --- | --- |
 | 11 | cffi | **no** | a foreign-function build and binding layer; behaviour is decided by the C declarations, not by runtime caller data |
-| 12 | pluggy | **yes** | hook call order and the first-result rule depend on properties of the plugins registered by the caller |
+| 12 | pluggy | **yes** | hook call order and the first-result rule depend on properties of the plugins registered by the caller — **next** |
 | 13 | pygments | **yes** | lexer selection is inferred from filename and content, which is an assumption about caller-supplied data |
 | 14 | pyyaml | **yes** | scalar resolution branches on the shape of the supplied string — the Norway problem is the canonical instance |
 | 15 | botocore | **defer** | boto3 (rank 1) is a thin layer over it and was audited at rank 1; auditing it separately would double-count one codebase unless a surface outside boto3's is chosen |

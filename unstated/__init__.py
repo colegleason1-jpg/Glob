@@ -11,6 +11,12 @@ expensive part is not writing them: it is establishing, for each library, that t
 assumption exists, measuring what it costs when violated, and confirming the check
 catches it. That work is recorded per entry in ``CATALOGUE`` and in ``docs/``.
 
+The assumption is always one made **about the caller's data, that the caller was never
+asked about**. A parameter the library did offer at the call site, left at its default, is
+not an entry here however sharp the consequence — that boundary was drawn when
+``cryptography`` was audited and came back clean, and it is what keeps this a catalogue
+rather than a list of configuration advice.
+
 A finding here is never a claim that a library is broken. In every case so far the
 behaviour is arithmetic working correctly under a condition nobody wrote down, and in
 one case (dateutil) it is filed upstream and has been for years. The gap this package

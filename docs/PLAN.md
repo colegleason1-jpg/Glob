@@ -120,7 +120,7 @@ That makes the hit rate a real number instead of a selection artefact, and it ma
 | **hit rate** by target, in selection order | the honest expectation is that it falls as obvious targets are exhausted. Track it, publish it, do not hide the decline. |
 | clean passes | already 2 (Optuna's TPE, the Cortex learner). A catalogue with no clean passes is a confirmation machine, not an instrument. |
 | time per audit | currently well under an hour. If it climbs past a day, the economics change. |
-| entries invalidated by a new library version | this is the subscription logic. If entries never go stale, there is no recurring product. |
+| entries invalidated by a new library version | this is the subscription logic. If entries never go stale, there is no recurring product. **Answered at audit 13: they go stale, in both directions.** `cryptography.Certificate.not_valid_after` is a silent naive datetime on 41.0.7 (a FINDING) and emits a `CryptographyDeprecationWarning` on 50.0.1 (LOUD). Same check, opposite verdicts — and 41.0.7 is what Debian ships. See `cold-test-cryptography.md`. |
 
 ## Catalogue policy
 

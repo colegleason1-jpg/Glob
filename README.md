@@ -137,11 +137,27 @@ Every row is the same shape:
 > **A component that works under an assumption, with nothing in the software signalling
 > when the assumption does not hold — and a safe path that costs something real.**
 
+And the assumption is always one made **about your data, that you were never asked about.**
+dateutil never asks whether a column is day-first — it decides per string. requests never
+asks whether a body is UTF-8 — it assumes. charset-normalizer never says its answer is a
+guess — it reports 1.000. A parameter you *were* offered and left at its default is not an
+entry here, however sharp the consequence; that line is what
+[audit 13](docs/cold-test-cryptography.md) was worth.
+
 Full measurement for each is in [`docs/`](docs/), one file per audit. From audit 7 the
 targets are selected by a [pre-registered protocol](docs/TARGETS.md) — descending PyPI
 download order, eligibility recorded before the run — so that a miss is as publishable as
-a hit. Before continuing past six, the [prior-art check](docs/prior-art.md) tested whether
-`pandas-vet`, `pandera` or `deepchecks` already catch any of these. None do.
+a hit. **It has missed**: cryptography (PyCA) came back CLEAN at rank 10 after thirteen
+probes, nine of which found the library raising, warning, or simply behaving correctly. The
+running rate is 7 eligible audited, 6 findings. Before continuing past six, the
+[prior-art check](docs/prior-art.md) tested whether `pandas-vet`, `pandera` or
+`deepchecks` already catch any of these. None do.
+
+One further result from that audit, because it decides how any of this would be delivered:
+`cryptography.Certificate.not_valid_after` is a silent naive datetime on **41.0.7** — which
+is what Debian ships — and emits a deprecation warning on **50.0.1**. Same check, opposite
+verdicts. **An entry is a claim about a version, not about a library**, so the answer a
+reader needs depends on what they have installed rather than on what is current.
 
 
 Every entry was found **cold** — in a public library, with no prior familiarity with its
