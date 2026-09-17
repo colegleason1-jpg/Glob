@@ -1,0 +1,138 @@
+"""Guards on the process, not on the code.
+
+Every test here exists because something actually went wrong, and each names the incident.
+They are cheap and they run on every commit, which is the point: the failures they guard
+against were all cheap to catch and were not caught, and the person who caught them was
+the owner of the repository rather than the test suite.
+"""
+
+from __future__ import annotations
+
+import pathlib
+
+import pytest
+
+from unstated import CATALOGUE
+from unstated._manifest import ESTABLISHED, HELD_OPEN, WITHDRAWALS
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+def _keys():
+    return {f"{e.library}|{e.component}" for e in CATALOGUE}
+
+
+# --------------------------------------------------------------------------- #
+# 2026-09-17: a measured finding in cryptography 41.0.7 was deleted from the
+# catalogue without being asked about, because a later release fixed it.
+# --------------------------------------------------------------------------- #
+
+def test_no_established_finding_has_vanished_from_the_catalogue():
+    """The guard on the incident this whole file exists for.
+
+    If this fails you are about to remove a finding. That is allowed exactly once you have
+    re-run its measurement, watched it not reproduce, and recorded a Withdrawal carrying
+    the owner's approval in their own words. Deleting the row from ESTABLISHED to make the
+    test pass is rewriting the record, not fixing the code.
+    """
+    withdrawn = {w.key for w in WITHDRAWALS}
+    missing = [k for k in ESTABLISHED if k not in _keys() and k not in withdrawn]
+    assert not missing, (
+        f"{len(missing)} established finding(s) are gone from CATALOGUE with no "
+        f"Withdrawal record: {missing}. See unstated/_manifest.py and docs/PROCESS.md."
+    )
+
+
+def test_a_withdrawal_carries_a_re_run_and_a_named_approval():
+    """'I no longer think it qualifies' is not a withdrawal. A re-run that did not
+    reproduce, plus the owner saying so, is."""
+    for w in WITHDRAWALS:
+        for field in ("key", "established_in", "remeasured_on", "what_it_showed",
+                      "approved_by", "evidence"):
+            value = getattr(w, field)
+            assert value and value.strip(), f"withdrawal of {w.key!r} has empty {field}"
+        assert any(ch.isdigit() for ch in w.what_it_showed), (
+            f"withdrawal of {w.key!r} records no number from the re-run — a withdrawal "
+            "needs the measurement, not a description of it"
+        )
+        assert (ROOT / w.evidence).exists(), f"withdrawal of {w.key!r} cites missing evidence"
+
+
+def test_every_catalogue_entry_is_recorded_in_the_ledger():
+    """The other direction: a finding added to CATALOGUE and not to ESTABLISHED is
+    unprotected — it could be deleted later and nothing would notice."""
+    unrecorded = sorted(_keys() - set(ESTABLISHED))
+    assert not unrecorded, (
+        f"catalogued but not in the append-only ledger: {unrecorded}. "
+        "Add them to unstated/_manifest.py:ESTABLISHED."
+    )
+
+
+def test_a_fix_upstream_bounds_an_entry_it_does_not_delete_one():
+    """The specific wrong reasoning: 42.0.0 fixed it, therefore there is no finding.
+    A resolved entry must still be present, and must carry the range it applies to."""
+    resolved = [e for e in CATALOGUE if e.is_resolved]
+    assert resolved, (
+        "no resolved entries at all — if one was dropped because upstream fixed it, that "
+        "is the exact error this guards"
+    )
+    for e in resolved:
+        assert e.affected_versions != "not yet ranged", (
+            f"{e.library} names a fix version but no measured affected range: a bound "
+            "needs both ends"
+        )
+
+
+# --------------------------------------------------------------------------- #
+# 2026-09-17: three further candidates were dismissed on a principle invented
+# mid-audit, which contradicted an existing entry.
+# --------------------------------------------------------------------------- #
+
+def test_a_dismissed_candidate_is_held_open_not_discarded():
+    """A measured behaviour excluded by judgement is recorded with its argument so the
+    owner can overrule it. Silently dropping one is how the incident happened."""
+    for key, argument in HELD_OPEN:
+        assert "|" in key, f"held-open key {key!r} is not library|component"
+        assert len(argument) > 120, (
+            f"held-open {key!r} carries a {len(argument)}-character argument — too thin "
+            "for someone to overrule it on"
+        )
+        assert any(ch.isdigit() for ch in argument), (
+            f"held-open {key!r} records no measurement; a judgement call still needs the "
+            "numbers it was made against"
+        )
+
+
+# --------------------------------------------------------------------------- #
+# The rules have to load without being asked for, or they are not rules.
+# --------------------------------------------------------------------------- #
+
+MANDATORY_RULES = [
+    "Never delete a finding",
+    "Never change a published verdict",
+    "Test a new exclusion rule against every existing entry",
+    "Measure before concluding",
+    "Destructive operations need explicit approval",
+]
+
+
+def test_the_process_document_exists_and_states_every_rule():
+    process = ROOT / "docs" / "PROCESS.md"
+    assert process.exists(), "docs/PROCESS.md is missing"
+    text = process.read_text()
+    for rule in MANDATORY_RULES:
+        assert rule in text, f"docs/PROCESS.md no longer states the rule: {rule!r}"
+
+
+def test_claude_md_loads_the_rules_automatically():
+    """A document nobody reads is not a rule. CLAUDE.md is injected into every session,
+    including subagents, so the rules arrive without the owner having to ask for them."""
+    claude_md = ROOT / "CLAUDE.md"
+    assert claude_md.exists(), "CLAUDE.md is missing — the rules will not load"
+    text = claude_md.read_text()
+    assert "docs/PROCESS.md" in text, "CLAUDE.md does not point at the process document"
+    for rule in MANDATORY_RULES:
+        assert rule in text, (
+            f"CLAUDE.md no longer carries the rule {rule!r} inline. Pointing at a file is "
+            "not enough; the hard rules must be in the text that always loads."
+        )
