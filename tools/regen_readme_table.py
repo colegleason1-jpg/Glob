@@ -33,13 +33,17 @@ def _first_sentence(text: str, limit: int) -> str:
 
 def build_table() -> str:
     rows = [
-        "| library | component | assumption | measured | detection |",
-        "| --- | --- | --- | --- | --- |",
+        "| library | component | affected versions | assumption | measured | detection |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
     for entry in sorted(CATALOGUE, key=lambda e: e.library):
         detection = _first_sentence(entry.impact.detection, 46) if entry.impact else ""
+        span = _first_sentence(entry.affected_versions, 64)
+        if entry.is_resolved:
+            span += f" — **fixed in {entry.resolved_in}**"
         rows.append(
             f"| `{entry.library}` | `{entry.component}` "
+            f"| {span} "
             f"| {_first_sentence(entry.assumption, 74)} "
             f"| {_first_sentence(entry.cost_when_violated, 150)} "
             f"| {detection} |"

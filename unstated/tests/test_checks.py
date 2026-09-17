@@ -13,7 +13,8 @@ import random
 import pandas as pd
 import pytest
 
-from unstated import (CATALOGUE, check_dates, check_detected_encoding,
+from unstated import (CATALOGUE, check_certificate_dates, check_dates,
+                      check_detected_encoding,
                       check_domain_encoding, check_merge,
                       check_response_encoding, check_retry,
                       check_paginated, check_specifier,
@@ -622,3 +623,118 @@ def test_utf8_survives_the_corpus_that_legacy_encodings_do_not():
 
     assert sum(round_trips(t.encode("utf-8"), t) for _, t in corpus) == len(corpus)
     assert sum(round_trips(t.encode(e), t) for e, t in corpus) < len(corpus)
+
+
+# --------------------------------------------------------------------------- #
+# certificate dates
+#
+# The check probes the INSTALLED library by catching the deprecation warning, because
+# the same attribute is a defect on cryptography < 42.0.0 and a non-event on >= 42.0.0.
+# A version string would be a worse test than the behaviour itself.
+# --------------------------------------------------------------------------- #
+
+class _SilentNaiveCert:
+    """A certificate as every release from 3.4.8 through 41.0.7 returns it."""
+
+    not_valid_after = datetime.datetime(2026, 10, 1, 12, 0, 0)
+
+
+class _WarningCert:
+    """A certificate as 42.0.0 and later return it: the attribute still works, and says so."""
+
+    not_valid_after_utc = datetime.datetime(
+        2026, 10, 1, 12, 0, 0, tzinfo=datetime.timezone.utc
+    )
+
+    @property
+    def not_valid_after(self):
+        import warnings
+
+        warnings.warn("deprecated, use not_valid_after_utc", DeprecationWarning)
+        return datetime.datetime(2026, 10, 1, 12, 0, 0)
+
+
+def _at_timezone(name):
+    import os
+    import time
+
+    os.environ["TZ"] = name
+    time.tzset()
+
+
+def test_a_silent_naive_certificate_is_flagged_west_of_utc():
+    """The unsafe direction: the naive comparison accepts a certificate that has already
+    expired, for a window as wide as the host's offset."""
+    try:
+        _at_timezone("America/Los_Angeles")
+        finding = check_certificate_dates(_SilentNaiveCert())
+        assert finding is not None
+        assert finding.severity == "high"
+        assert "ALREADY EXPIRED" in finding.observed["error_in_a_naive_comparison"]
+        assert finding.observed["warning_emitted"] == "no"
+    finally:
+        _at_timezone("UTC")
+
+
+def test_east_of_utc_is_flagged_as_the_other_failure():
+    """Same defect, opposite direction: renewal alarms fire early, every time."""
+    try:
+        _at_timezone("Pacific/Auckland")
+        finding = check_certificate_dates(_SilentNaiveCert())
+        assert finding is not None
+        assert finding.severity == "medium"
+        assert "still-valid" in finding.observed["error_in_a_naive_comparison"]
+    finally:
+        _at_timezone("UTC")
+
+
+def test_a_version_that_warns_is_not_flagged():
+    """cryptography >= 42.0.0 tells you, which is the whole distinction between FINDING
+    and LOUD. The check must go quiet on its own."""
+    try:
+        _at_timezone("America/Los_Angeles")
+        assert check_certificate_dates(_WarningCert()) is None
+    finally:
+        _at_timezone("UTC")
+
+
+def test_a_host_at_utc_is_not_flagged():
+    """At UTC the naive comparison is correct — by luck, not design. It is also why CI
+    never catches this: build hosts run at UTC."""
+    _at_timezone("UTC")
+    assert check_certificate_dates(_SilentNaiveCert()) is None
+
+
+def test_the_naive_comparison_really_does_not_raise():
+    """The premise of the whole entry. If Python raised TypeError here, nobody would ship
+    it — the danger is that both operands are naive, so it compares cleanly."""
+    try:
+        _at_timezone("America/Los_Angeles")
+        expired_six_hours_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+        looks_expired = expired_six_hours_ago < datetime.datetime.now()
+        assert looks_expired is False, "the expired certificate reads as still valid"
+    finally:
+        _at_timezone("UTC")
+
+
+# --------------------------------------------------------------------------- #
+# catalogue invariants
+# --------------------------------------------------------------------------- #
+
+def test_a_resolved_entry_is_kept_not_deleted():
+    """Audit 13 deleted a real finding because a later release fixed it. An entry is a
+    claim about VERSIONS: a fix upstream bounds it, and the affected range is still
+    installed. This test is the guard on that."""
+    resolved = [e for e in CATALOGUE if e.is_resolved]
+    assert resolved, "a resolved entry was dropped rather than bounded"
+    for entry in resolved:
+        assert entry.affected_versions != "not yet ranged", (
+            f"{entry.library} claims a fix version without a measured affected range"
+        )
+        assert entry.evidence, f"{entry.library} has no evidence path"
+
+
+def test_every_entry_names_the_versions_it_was_measured_on():
+    """A verdict is only as wide as the versions measured."""
+    for entry in CATALOGUE:
+        assert entry.versions_measured.strip(), f"{entry.library} names no version"

@@ -36,17 +36,38 @@ class Impact:
 
 @dataclass(frozen=True)
 class CatalogueEntry:
+    """One precondition, pinned to the versions it was measured on.
+
+    **An entry is a claim about versions, not about a library.** That is not a formality:
+    ``cryptography.Certificate.not_valid_after`` is silently naive in every release from
+    3.4.8 (2021) to 41.0.7 (2023) and emits a deprecation warning from 42.0.0 — the same
+    attribute, a defect on one installation and a non-event on the next.
+
+    So a fix upstream does not delete an entry, it **bounds** it. Someone running the
+    affected range still has the defect today, and ``resolved_in`` tells them exactly what
+    to upgrade to. An entry that is resolved is more useful than one that is not, because
+    it comes with the remedy attached.
+    """
+
     library: str
     component: str
-    versions_measured: str
+    versions_measured: str      #: the versions actually run, comma-separated
     assumption: str
     cost_when_violated: str     #: measured, with the number
     upstream_status: str        #: filed, documented, working-as-intended, unknown
     evidence: str               #: path to the full measurement
     impact: Impact | None = None
+    affected_versions: str = "not yet ranged"   #: the measured span, with dates
+    resolved_in: str = "not resolved"           #: first version that warns, raises or fixes
+
+    @property
+    def is_resolved(self) -> bool:
+        return self.resolved_in not in ("not resolved", "unknown", "")
 
     def __str__(self) -> str:
-        return f"{self.library}.{self.component} ({self.versions_measured})"
+        span = self.affected_versions if self.affected_versions != "not yet ranged" else self.versions_measured
+        tail = f", resolved in {self.resolved_in}" if self.is_resolved else ""
+        return f"{self.library}.{self.component} ({span}{tail})"
 
 
 CATALOGUE: tuple[CatalogueEntry, ...] = (
@@ -555,6 +576,66 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
                 "177 of 256 byte values, so a German sentence read as cp1250 changes 0 "
                 "characters and the Spanish sentence next to it changes 3. German test "
                 "fixtures pass while Spanish production data is altered."
+            ),
+        ),
+    ),
+    CatalogueEntry(
+        library="cryptography",
+        component="x509.Certificate.not_valid_after",
+        versions_measured="3.4.8, 36.0.2, 39.0.2, 41.0.7, 42.0.8, 43.0.3, 45.0.7, 50.0.1",
+        affected_versions=(
+            "silent in every release measured from 3.4.8 (2021-08-24) through 41.0.7 "
+            "(2023-11-28) — a 2.4-year span, and the range Debian stable ships"
+        ),
+        resolved_in="42.0.0 (2024-01-23)",
+        assumption=(
+            "the caller will compare this naive UTC value against another UTC value — not "
+            "against datetime.now(), which is naive local time"
+        ),
+        cost_when_violated=(
+            "The error equals the host's UTC offset, up to 14 hours in either direction. "
+            "Measured on 41.0.7 across 10 real timezones with the comparison every "
+            "monitoring script writes (cert.not_valid_after < datetime.now()): a "
+            "certificate that expired 6 hours ago READS AS VALID in 3 of 10 "
+            "(America/Los_Angeles, Pacific/Honolulu, Pacific/Midway), and one with 6 hours "
+            "left reads as expired in 3 others (Kiritimati, Auckland, Tokyo). 0 exceptions "
+            "and 0 warnings on any release before 42.0.0. From 42.0.0 the attribute emits "
+            "CryptographyDeprecationWarning and not_valid_after_utc exists, so the same "
+            "code is LOUD there — measured at 42.0.8, 43.0.3, 45.0.7 and 50.0.1."
+        ),
+        upstream_status=(
+            "resolved: deprecated in 42.0.0 in favour of not_valid_after_utc. The entry "
+            "stays because the affected range is still widely installed, and because the "
+            "fix is the answer a reader on that range needs."
+        ),
+        evidence="docs/cold-test-cryptography.md",
+        impact=Impact(
+            believed_claim="This certificate has not expired yet.",
+            actual_claim=(
+                "This certificate has not expired, in a timezone that may not be the one "
+                "issuing the certificate. Measured across 10 deployment timezones on "
+                "41.0.7: the answer is wrong in 6 of them, by exactly the host's UTC "
+                "offset, and wrong in the unsafe direction in 3."
+            ),
+            breaks=(
+                "An expiry gate, in both directions, and the two failures land on "
+                "different people. Fail-open — anywhere west of about UTC-5 — a "
+                "certificate that has already expired is accepted for up to 11 more "
+                "hours, so a service keeps trusting a credential past its stated life and "
+                "an audit that asks 'were any expired certificates accepted' answers no "
+                "from the same broken comparison. Fail-closed — anywhere east of about "
+                "UTC+7 — renewal alarms fire up to 14 hours early, every time, until "
+                "someone widens the threshold to silence them and the real warning window "
+                "goes with it. The same line of code does both, and which one you get "
+                "depends on where the host is, not on what you wrote."
+            ),
+            detection=(
+                "None on the affected range, and the naive comparison is the one that "
+                "reads correctly. Both operands are naive so Python compares them without "
+                "complaint — there is no TypeError, which is the error Python raises when "
+                "you mix aware and naive values and the reason this looks safe. It is also "
+                "invisible in CI, because build hosts run at UTC, which is the one offset "
+                "where the comparison is right."
             ),
         ),
     ),

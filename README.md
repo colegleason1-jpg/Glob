@@ -107,7 +107,7 @@ check_merge(orders, customers, on="customer_id")
 ```
 
 Findings are **measured, not predicted** — the report says "36.7% of these 2,000 values",
-not "this can happen". `CATALOGUE` carries <!-- CATALOGUE COUNT -->11<!-- /CATALOGUE COUNT --> entries, each with the cost measured
+not "this can happen". `CATALOGUE` carries <!-- CATALOGUE COUNT -->12<!-- /CATALOGUE COUNT --> entries, each with the cost measured
 when it was added, its upstream status, and a path to the full run.
 
 Half the tests assert the checks stay **silent**: on a spelled-out month column, on a
@@ -117,19 +117,20 @@ switched off in its first week and takes the real findings with it.
 ## The same defect class, found in every library audited so far
 
 <!-- BEGIN CATALOGUE TABLE (generated from unstated.CATALOGUE — do not hand-edit) -->
-| library | component | assumption | measured | detection |
-| --- | --- | --- | --- | --- |
-| `boto3` | `list/scan/query operations` | the caller's result set fits in one page | list_objects_v2 returned 1,000 of 2,500 objects — 40% of the truth, 1,500 silently missing, 0 exceptions and 0 warnings, HTTP 200 and a well-formed... | Very poor, and there is no ceiling to learn... |
-| `charset-normalizer` | `detect / from_bytes(...).best()` | a successful decode is evidence the encoding is right — true for UTF-8,... | 20 sentences in 20 legacy encodings: 8 round-trip to a DIFFERENT string (40%) and only 6 of 20 named the right encoding, with 0 exceptions and 0 wa... | Effectively none, and the confidence field ... |
-| `idna` | `encode vs the stdlib 'idna' codec` | encoding a domain name is deterministic — one input, one host | 8 of 13 internationalised domains (62%) encode differently under the two standards, and 4 of those produce two separately registrable names: 'stras... | Very poor, and the usual test data hides it |
-| `imbalanced-learn` | `SMOTE` | the caller consumes rankings, not probabilities | PR-AUC down 3-24% (0/20 seeds winning at three of four ratios) and calibration destroyed at every ratio on every seed: Brier +41% to +1232% | Poor |
-| `optuna` | `pruners.MedianPruner` | early rank predicts final rank | +6379% quality cost on 12/12 seeds when eventual winners look worst early, while saving MORE compute than in the favourable case (63% vs 51%) | Only by re-running without the pruner and c... |
-| `packaging` | `SpecifierSet` | the caller cares only about ordering — not whether a candidate is a pre... | 30% of 60 specifier/version pairs disagree with plain ordering, in both directions | Poor in both directions |
-| `pandas` | `DataFrame.merge` | the join key is unique on at least one side | 2.02x row inflation and +105.4% on the summed column, with 0 exceptions, 0 warnings, no nulls introduced, dtypes preserved and every value in range | Poor, and worse than it looks |
-| `python-dateutil` | `parser.parse` | month-before-day ordering, decided per string rather than per column | 37.2% of a 2,000-row day-first column silently wrong, median 118 days off, 0 exceptions and 0 warnings; one column returned under two conventions (... | Poor |
-| `requests` | `Response.text` | a text/* response that omits charset is Latin-1, per RFC 2616 §3.7.1 — ... | Over 12 UTF-8 bodies served as text/plain with no charset, measured on the wire: r.text was correct 0/12, r.apparent_encoding was correct 12/12 | Worst case, and the reason it reaches produ... |
-| `scikit-learn` | `model_selection.train_test_split` | rows are independent — that no two rows share a subject | accuracy overstated by 14.8% and ROC-AUC by 9.5% on 12 of 12 trials (0.9472 vs 0.8250, 0.9910 vs 0.9047) with 150 subjects at 8 rows each, 0 except... | The failure looks like SUCCESS, which is th... |
-| `urllib3` | `util.retry.Retry` | the caller wants connection-level retries only, spaced by nothing, on m... | Measured on the wire against a local server returning 503 and counting the requests that arrive: Retry(total=3) sends 1 request | Poor for the first, and inverted for the third |
+| library | component | affected versions | assumption | measured | detection |
+| --- | --- | --- | --- | --- | --- |
+| `boto3` | `list/scan/query operations` | not yet ranged | the caller's result set fits in one page | list_objects_v2 returned 1,000 of 2,500 objects — 40% of the truth, 1,500 silently missing, 0 exceptions and 0 warnings, HTTP 200 and a well-formed... | Very poor, and there is no ceiling to learn... |
+| `charset-normalizer` | `detect / from_bytes(...).best()` | not yet ranged | a successful decode is evidence the encoding is right — true for UTF-8,... | 20 sentences in 20 legacy encodings: 8 round-trip to a DIFFERENT string (40%) and only 6 of 20 named the right encoding, with 0 exceptions and 0 wa... | Effectively none, and the confidence field ... |
+| `cryptography` | `x509.Certificate.not_valid_after` | silent in every release measured from 3.4.8 (2021-08-24) thro... — **fixed in 42.0.0 (2024-01-23)** | the caller will compare this naive UTC value against another UTC value ... | The error equals the host's UTC offset, up to 14 hours in either direction | None on the affected range, and the naive c... |
+| `idna` | `encode vs the stdlib 'idna' codec` | not yet ranged | encoding a domain name is deterministic — one input, one host | 8 of 13 internationalised domains (62%) encode differently under the two standards, and 4 of those produce two separately registrable names: 'stras... | Very poor, and the usual test data hides it |
+| `imbalanced-learn` | `SMOTE` | not yet ranged | the caller consumes rankings, not probabilities | PR-AUC down 3-24% (0/20 seeds winning at three of four ratios) and calibration destroyed at every ratio on every seed: Brier +41% to +1232% | Poor |
+| `optuna` | `pruners.MedianPruner` | not yet ranged | early rank predicts final rank | +6379% quality cost on 12/12 seeds when eventual winners look worst early, while saving MORE compute than in the favourable case (63% vs 51%) | Only by re-running without the pruner and c... |
+| `packaging` | `SpecifierSet` | not yet ranged | the caller cares only about ordering — not whether a candidate is a pre... | 30% of 60 specifier/version pairs disagree with plain ordering, in both directions | Poor in both directions |
+| `pandas` | `DataFrame.merge` | not yet ranged | the join key is unique on at least one side | 2.02x row inflation and +105.4% on the summed column, with 0 exceptions, 0 warnings, no nulls introduced, dtypes preserved and every value in range | Poor, and worse than it looks |
+| `python-dateutil` | `parser.parse` | not yet ranged | month-before-day ordering, decided per string rather than per column | 37.2% of a 2,000-row day-first column silently wrong, median 118 days off, 0 exceptions and 0 warnings; one column returned under two conventions (... | Poor |
+| `requests` | `Response.text` | not yet ranged | a text/* response that omits charset is Latin-1, per RFC 2616 §3.7.1 — ... | Over 12 UTF-8 bodies served as text/plain with no charset, measured on the wire: r.text was correct 0/12, r.apparent_encoding was correct 12/12 | Worst case, and the reason it reaches produ... |
+| `scikit-learn` | `model_selection.train_test_split` | not yet ranged | rows are independent — that no two rows share a subject | accuracy overstated by 14.8% and ROC-AUC by 9.5% on 12 of 12 trials (0.9472 vs 0.8250, 0.9910 vs 0.9047) with 150 subjects at 8 rows each, 0 except... | The failure looks like SUCCESS, which is th... |
+| `urllib3` | `util.retry.Retry` | not yet ranged | the caller wants connection-level retries only, spaced by nothing, on m... | Measured on the wire against a local server returning 503 and counting the requests that arrive: Retry(total=3) sends 1 request | Poor for the first, and inverted for the third |
 <!-- END CATALOGUE TABLE -->
 
 Every row is the same shape:
@@ -137,21 +138,27 @@ Every row is the same shape:
 > **A component that works under an assumption, with nothing in the software signalling
 > when the assumption does not hold — and a safe path that costs something real.**
 
-And the assumption is always one made **about your data, that you were never asked about.**
-dateutil never asks whether a column is day-first — it decides per string. requests never
-asks whether a body is UTF-8 — it assumes. charset-normalizer never says its answer is a
-guess — it reports 1.000. A parameter you *were* offered and left at its default is not an
-entry here, however sharp the consequence; that line is what
-[audit 13](docs/cold-test-cryptography.md) was worth.
+The assumption is **misdirection, not omission**: a call site that actively reads as
+asserting something false. dateutil never asks whether a column is day-first — it decides
+per string. requests never asks whether a body is UTF-8 — it assumes.
+charset-normalizer does not say its answer is a guess — it reports confidence 1.000.
+`Retry(total=3)` looks like it retries, and a different parameter decides whether it does.
 
 Full measurement for each is in [`docs/`](docs/), one file per audit. From audit 7 the
 targets are selected by a [pre-registered protocol](docs/TARGETS.md) — descending PyPI
 download order, eligibility recorded before the run — so that a miss is as publishable as
-a hit. **It has missed**: cryptography (PyCA) came back CLEAN at rank 10 after thirteen
-probes, nine of which found the library raising, warning, or simply behaving correctly. The
-running rate is 7 eligible audited, 6 findings. Before continuing past six, the
+a hit. Running rate: **7 eligible audited, 7 findings**, one of them resolved upstream and
+catalogued with that boundary. Before continuing past six, the
 [prior-art check](docs/prior-art.md) tested whether `pandas-vet`, `pandera` or
 `deepchecks` already catch any of these. None do.
+
+**One of those seven was published as a CLEAN and was wrong.** Audit 13 found a silent
+defect in cryptography 41.0.7, then disqualified it because 42.0.0 fixed it — and
+disqualified three further candidates against a principle that contradicts entry 9 of this
+same table. Both the verdict and the reasoning are corrected in
+[`docs/cold-test-cryptography.md`](docs/cold-test-cryptography.md), which keeps the wrong
+version and says how it was reached. A catalogue about software asserting more than it
+established cannot quietly do the same thing.
 
 One further result from that audit, because it decides how any of this would be delivered:
 `cryptography.Certificate.not_valid_after` is a silent naive datetime on **41.0.7** — which
@@ -161,11 +168,11 @@ reader needs depends on what they have installed rather than on what is current.
 
 
 Every entry was found **cold** — in a public library, with no prior familiarity with its
-source — and they are spread across <!-- PROJECT COUNT -->11<!-- /PROJECT COUNT -->
-independently maintained projects with no shared authorship — AWS, the PyPA, the PSF, the
-pandas, scikit-learn and urllib3 teams, Preferred Networks, and the imbalanced-learn,
-dateutil, idna and charset-normalizer maintainers. The failure mode is not one team's
-habit.
+source — and they are spread across <!-- PROJECT COUNT -->12<!-- /PROJECT COUNT -->
+independently maintained projects with no shared authorship — AWS, the PyPA, the PSF,
+PyCA, the pandas, scikit-learn and urllib3 teams, Preferred Networks, and the
+imbalanced-learn, dateutil, idna and charset-normalizer maintainers. The failure mode is
+not one team's habit.
 
 Two of the runs below are kept in full as worked examples.
 
