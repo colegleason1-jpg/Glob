@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from unstated import (CATALOGUE, check_dates, check_domain_encoding, check_merge,
+                      check_retry,
                       check_paginated, check_specifier,
                       check_split)
 
@@ -321,3 +322,58 @@ def test_the_readme_table_matches_the_catalogue():
     assert listed == len(CATALOGUE), (
         f"README table has {listed} rows, catalogue has {len(CATALOGUE)}"
     )
+
+
+# --------------------------------------------------------------------------- #
+# retries
+# --------------------------------------------------------------------------- #
+
+def test_the_default_retry_that_retries_no_status_is_flagged():
+    """Retry(total=3) reads as 'try three more times'. Measured against a 503 it sends
+    one request, because status_forcelist is empty."""
+    from urllib3.util.retry import Retry
+
+    finding = check_retry(Retry(total=3))
+    assert finding is not None
+    assert finding.severity == "high"
+    assert finding.observed["status_forcelist"] == "empty"
+    assert "500, 502, 503, 504" in finding.remedy
+
+
+def test_retrying_statuses_with_no_backoff_is_flagged():
+    """The second default, exposed by fixing the first: four attempts in 0.00 seconds at
+    a service that is already failing."""
+    from urllib3.util.retry import Retry
+
+    finding = check_retry(Retry(total=3, status_forcelist=[503]))
+    assert finding is not None
+    assert "backoff_factor is 0" in finding.observed["gaps"]
+
+
+def test_opening_up_every_method_is_flagged():
+    """The opposite mistake, usually made while fixing the first two: a POST replayed."""
+    from urllib3.util.retry import Retry
+
+    finding = check_retry(
+        Retry(total=3, status_forcelist=[503], backoff_factor=0.5, allowed_methods=None)
+    )
+    assert finding is not None
+    assert "non-idempotent request is replayed" in finding.observed["gaps"]
+
+
+def test_a_considered_retry_configuration_is_not_flagged():
+    """The silence case. Someone who named what they are retrying, spaced the attempts,
+    and left the method set alone must not be nagged."""
+    from urllib3.util.retry import Retry
+
+    assert check_retry(
+        Retry(total=3, status_forcelist=[500, 502, 503, 504], backoff_factor=0.5)
+    ) is None
+
+
+def test_retries_turned_off_are_not_flagged():
+    """total=0 promises nothing, so there is nothing to be wrong about."""
+    from urllib3.util.retry import Retry
+
+    assert check_retry(Retry(total=0)) is None
+    assert check_retry(Retry(total=False)) is None

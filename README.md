@@ -119,14 +119,15 @@ switched off in its first week and takes the real findings with it.
 <!-- BEGIN CATALOGUE TABLE (generated from unstated.CATALOGUE — do not hand-edit) -->
 | library | component | assumption | measured | detection |
 | --- | --- | --- | --- | --- |
-| `boto3` | `list/scan/query operations` | the caller's result set fits in one page | list_objects_v2 returned 1,000 of 2,500 objects — 40% of the truth, 1,500 silently missing, 0 exceptions and 0 warnings, HTTP 200 and a well-formed... | Very poor, and there is no ceiling to le |
-| `idna` | `encode vs the stdlib 'idna' codec` | encoding a domain name is deterministic — one input, one host | 8 of 13 internationalised domains (62%) encode differently under the two standards, and 4 of those produce two separately registrable names: 'strasse | Very poor, and the usual test data hides |
+| `boto3` | `list/scan/query operations` | the caller's result set fits in one page | list_objects_v2 returned 1,000 of 2,500 objects — 40% of the truth, 1,500 silently missing, 0 exceptions and 0 warnings, HTTP 200 and a well-formed... | Very poor, and there is no ceiling to learn... |
+| `idna` | `encode vs the stdlib 'idna' codec` | encoding a domain name is deterministic — one input, one host | 8 of 13 internationalised domains (62%) encode differently under the two standards, and 4 of those produce two separately registrable names: 'stras... | Very poor, and the usual test data hides it |
 | `imbalanced-learn` | `SMOTE` | the caller consumes rankings, not probabilities | PR-AUC down 3-24% (0/20 seeds winning at three of four ratios) and calibration destroyed at every ratio on every seed: Brier +41% to +1232% | Poor |
-| `optuna` | `pruners.MedianPruner` | early rank predicts final rank | +6379% quality cost on 12/12 seeds when eventual winners look worst early, while saving MORE compute than in the favourable case (63% vs 51%) | Only by re-running without the pruner an |
-| `packaging` | `SpecifierSet` | the caller cares only about ordering — not whether a candidate is a pr | 30% of 60 specifier/version pairs disagree with plain ordering, in both directions | Poor in both directions |
-| `pandas` | `DataFrame.merge` | the join key is unique on at least one side | 2 | Poor, and worse than it looks |
-| `python-dateutil` | `parser.parse` | month-before-day ordering, decided per string rather than per column | 37 | Poor |
-| `scikit-learn` | `model_selection.train_test_split` | rows are independent — that no two rows share a subject | accuracy overstated by 14 | The failure looks like SUCCESS, which is |
+| `optuna` | `pruners.MedianPruner` | early rank predicts final rank | +6379% quality cost on 12/12 seeds when eventual winners look worst early, while saving MORE compute than in the favourable case (63% vs 51%) | Only by re-running without the pruner and c... |
+| `packaging` | `SpecifierSet` | the caller cares only about ordering — not whether a candidate is a pre... | 30% of 60 specifier/version pairs disagree with plain ordering, in both directions | Poor in both directions |
+| `pandas` | `DataFrame.merge` | the join key is unique on at least one side | 2.02x row inflation and +105.4% on the summed column, with 0 exceptions, 0 warnings, no nulls introduced, dtypes preserved and every value in range | Poor, and worse than it looks |
+| `python-dateutil` | `parser.parse` | month-before-day ordering, decided per string rather than per column | 37.2% of a 2,000-row day-first column silently wrong, median 118 days off, 0 exceptions and 0 warnings; one column returned under two conventions (... | Poor |
+| `scikit-learn` | `model_selection.train_test_split` | rows are independent — that no two rows share a subject | accuracy overstated by 14.8% and ROC-AUC by 9.5% on 12 of 12 trials (0.9472 vs 0.8250, 0.9910 vs 0.9047) with 150 subjects at 8 rows each, 0 except... | The failure looks like SUCCESS, which is th... |
+| `urllib3` | `util.retry.Retry` | the caller wants connection-level retries only, spaced by nothing, on m... | Measured on the wire against a local server returning 503 and counting the requests that arrive: Retry(total=3) sends 1 request | Poor for the first, and inverted for the third |
 <!-- END CATALOGUE TABLE -->
 
 Every row is the same shape:

@@ -384,4 +384,58 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             ),
         ),
     ),
+    CatalogueEntry(
+        library="urllib3",
+        component="util.retry.Retry",
+        versions_measured="2.6.3",
+        assumption=(
+            "the caller wants connection-level retries only, spaced by nothing, on "
+            "methods the library judged idempotent"
+        ),
+        cost_when_violated=(
+            "Measured on the wire against a local server returning 503 and counting the "
+            "requests that arrive: Retry(total=3) sends 1 request. No retry at all — "
+            "status_forcelist is empty by default, so HTTP statuses are not retried. "
+            "Adding status_forcelist=[503] gives 4 requests in 0.00 seconds, because "
+            "backoff_factor defaults to 0. Setting allowed_methods=None to make a POST "
+            "retry replays the non-idempotent request 4 times. 0 exceptions on the first "
+            "configuration, 0 warnings on any of them."
+        ),
+        upstream_status=(
+            "documented: every default is in the Retry docstring and the defaults are "
+            "defensible in isolation. Nothing at the call site says that Retry(total=3) "
+            "and 'retry on failure' are different things."
+        ),
+        evidence="docs/cold-test-urllib3.md",
+        impact=Impact(
+            believed_claim="I configured retries, so transient failures are handled.",
+            actual_claim=(
+                "I configured retries for connection and read errors. Measured: against a "
+                "503, Retry(total=3) sent 1 request and returned the error. Once statuses "
+                "are added, the 4 attempts arrive within 0.00 seconds. Once methods are "
+                "opened up so a POST retries, the POST is sent 4 times."
+            ),
+            breaks=(
+                "Three different things, and fixing the first tends to cause the others. "
+                "A service that reports it has retries surfaces every upstream 503 as a "
+                "hard failure, so an operator tunes timeouts and capacity against a "
+                "resilience layer that was never engaged. Once statuses are retried with "
+                "no backoff, a struggling dependency receives four times the traffic in "
+                "the instant it is least able to serve it — the retry layer amplifies the "
+                "outage it was added to survive. And once methods are opened up, a "
+                "non-idempotent request is replayed: an order placed four times, a stock "
+                "movement recorded four times, a payment instruction submitted four "
+                "times. The server saw four valid requests and has no way to know three "
+                "were the same intent."
+            ),
+            detection=(
+                "Poor for the first, and inverted for the third. A retry that never "
+                "happened looks exactly like one that did not help, so the missing "
+                "retries surface as an error rate nobody attributes to configuration. The "
+                "duplicate-POST case is worse: nothing fails at all. Every request "
+                "returned 2xx, the client is satisfied, and the duplicates are discovered "
+                "later by whoever reconciles the records."
+            ),
+        ),
+    ),
 )
