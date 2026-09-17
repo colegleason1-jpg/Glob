@@ -82,6 +82,49 @@ be able to upgrade WebSockets; GitHub → Streamlit Community Cloud with `app/ma
 main file and Python 3.12 is the fast path. Read the three warnings about ephemeral storage,
 default-off authentication, and the default market provider before sharing a public link.
 
+## The method, turned on the agent that was applying it
+
+The discipline this repository is built around — separate what was measured from what was
+asserted, refuse rather than hedge, make every number trace to a stated input — is not
+supply-chain-specific. The strongest evidence for that is not any finding in this codebase.
+It is what happened when an AI agent adopted the discipline and then applied it to its own
+claims over one long working session.
+
+**The limit, stated first:** the session began with this repository, so there is no clean
+before. This is not a controlled experiment. It is a record of unmeasured claims being
+caught, and of what caught them.
+
+| # | The claim, as made | What measurement found |
+| --- | --- | --- |
+| 1 | Token routing saves ~51% | 21.6% once decisions were made on *believed* quality and graded on *true* quality. The gap was the optimizer's curse, not a result. |
+| 2 | Agent workflows will escape the allocation degeneracy | 99% pure allocations at 200 decisions — identical to routing. Prediction failed. |
+| 3 | "Confidence language is stripped at the first summarization step" | Wrong mechanism. Nothing is stripped, because nothing is attached. Provenance dies at the serialization boundary. |
+| 4 | The false-positive rate comes from the bootstrap block being shorter than the session | Forcing the block to session length moved 12.0% → 12.3%. Not the mechanism. The cause was heteroskedasticity from the rate denominator. |
+| 5 | "The min-calls fix is free — no vendors lost" | True only at the density assumed. At 2–10 calls/hour a flat floor makes *every* vendor unfittable. The first version broke an existing test. |
+| 6 | An entropy term can flip 0 of 6 routing decisions | Analytical bound too coarse. The direct test found 3 changed in 1,500. |
+| 7 | Build the custody API first — it has the moat | Sequencing on defensibility before demand is backwards, two sections after writing "the market is asserted, not measured". |
+| 8 | A solver-vs-fallback comparison showing 400/400 agreement | **Vacuous.** SciPy was absent, so both arms ran the same code. |
+| 9 | Two measured columns reading zero | Wrong dict keys. Caught before reporting, because two zeros in a row were implausible. |
+| 10 | `AttainabilityReport.more_capital_would_help` | Does not exist; it is `is_budget_limited`. **Made twice in one session**, caught by a test both times. |
+
+Nine of ten were caught by running something, not by thinking harder. In every case the
+analytical argument was clean and the conclusion was wrong. Rows 4 and 6 are the sharpest:
+correct-sounding mechanical explanations that survived scrutiny and died on contact with a
+measurement that took under a minute to write.
+
+Row 10 is what keeps it honest. The discipline does not prevent ordinary errors. It catches
+them. So the defensible claim is narrower than "it makes the reasoner right":
+
+> **It makes being wrong survivable and visible, fast enough to matter.**
+
+Every other finding recorded here is this method applied to code, where there was every
+incentive to find something. That table is the method applied to the agent's own output,
+where there was every incentive to find nothing — and it found ten.
+
+The full record is in [`docs/method-applied-to-the-agent.md`](docs/method-applied-to-the-agent.md),
+with the downstream measurements that produced rows 3–9 in
+[`docs/downstream-measurement-log.md`](docs/downstream-measurement-log.md).
+
 ## Two defects this repository's own tests could not see
 
 Recorded here rather than only in the log, because how they were found matters more than
