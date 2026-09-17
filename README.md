@@ -82,6 +82,46 @@ be able to upgrade WebSockets; GitHub → Streamlit Community Cloud with `app/ma
 main file and Python 3.12 is the fast path. Read the three warnings about ephemeral storage,
 default-off authentication, and the default market provider before sharing a public link.
 
+## Two defects this repository's own tests could not see
+
+Recorded here rather than only in the log, because how they were found matters more than
+what they were. Both were fixed in `engine/` and both are pinned by tests. The full suite
+passed over both of them the whole time.
+
+They surfaced when the engine was applied to a domain it was not built for. A separate
+project imports `scrcae` and feeds its estimator LLM request logs — load against service
+failures, in place of commodity price against delivery disruption. Neither defect is
+reachable from supply-chain-shaped data, which is why 700 passing tests said nothing.
+
+**`limited_by` named the wrong remedy when items are indivisible.** `attainable_frontier`
+counted a resource as tight only when usage *reached* capacity. That is right for
+continuous funding. When `min_funding_scale == max_funding_scale` — an all-or-nothing item
+— usage lands on a multiple of one node's demand, so unless capacity is an exact multiple
+there is stranded headroom no node can use, the row never reads as tight, and the report
+falls through to `budget`. The function's own comment says "more capital is the wrong
+remedy" for a supply bound, and the fall-through recommended exactly that.
+
+> Measured on five indivisible nodes with the budget set high enough that supply was the
+> only possible constraint: across **400 random capacities the supply bound was real 400
+> times and named 0 times**. It fired only on exact multiples of node demand, which is
+> measure-zero for real capacities. After the fix, 400/400.
+
+**`WRONG_SIGN` was decided before the interval was consulted.** `calibrate_elasticity`
+tested the point estimate's sign first, so an estimate that merely landed negative on noise
+was told "a market above anchor went with fewer disruptions… that is a hedge claim and
+needs a mechanism before it is used" — a statement about data that establishes nothing.
+Under a true null the sign is a coin flip.
+
+> On a true null, the correct label rose from **48.0% to 84.7%** and the mislabel rate fell
+> from **39% to 2.3%** against a ~2.5% nominal for a one-sided interval. Power on a real
+> effect is unchanged at **91.7%**. Both outcomes remain refusals — `is_usable` is
+> untouched — so this changed what a reader is told, not what is computed.
+
+The general lesson, which is the reason this section exists: a test suite encodes the
+assumptions its author held. These were defects *in those assumptions*, so no amount of
+testing from inside this repository would have reached them. What reached them was a second
+domain with a different data shape.
+
 ## What it does not claim
 
 Stated here rather than buried, because a tool that hides its own limits is the failure mode
