@@ -13,7 +13,8 @@ import random
 import pandas as pd
 import pytest
 
-from unstated import (CATALOGUE, check_dates, check_merge, check_paginated, check_specifier,
+from unstated import (CATALOGUE, check_dates, check_domain_encoding, check_merge,
+                      check_paginated, check_specifier,
                       check_split)
 
 
@@ -268,3 +269,55 @@ def test_unparseable_input_is_skipped_rather_than_flagged():
     assert check_specifier(">=1.0", ["not-a-version", "also bad"]) is None
     assert check_specifier("this is not a specifier", ["1.0"]) is None
     assert check_specifier(">=1.0", []) is None
+
+
+# --------------------------------------------------------------------------- #
+# domain encoding
+# --------------------------------------------------------------------------- #
+
+def test_domains_that_encode_to_two_different_hosts_are_flagged():
+    """The measured case: the German sharp s yields two registrable names."""
+    finding = check_domain_encoding(["straße.de", "faß.de"])
+    assert finding is not None
+    assert finding.severity == "high"
+    assert finding.observed["both_valid_but_different"] == 2
+    assert "uts46=True does not reconcile" in finding.remedy
+
+
+def test_the_domains_most_test_suites_use_are_not_flagged():
+    """The silence case, and the reason this defect survives: umlauts, accents and CJK
+    encode identically under both standards. A suite exercising these sees nothing, which
+    is exactly why a check is needed rather than a test."""
+    assert check_domain_encoding(["bücher.de", "café.fr", "日本.jp", "zürich.ch"]) is None
+    assert check_domain_encoding(["example.com", "sub.example.co.uk"]) is None
+    assert check_domain_encoding([]) is None
+    assert check_domain_encoding(["", "   "]) is None
+
+
+def test_a_name_one_encoder_refuses_is_flagged_as_a_disagreement():
+    """A validation step and a fetch step disagreeing about whether the input is a domain
+    at all is the same class of split, and must not be silently dropped."""
+    finding = check_domain_encoding(["ﬁ.example"])
+    assert finding is not None
+    assert finding.observed["one_encoder_refused"] == 1
+
+
+def test_the_readme_table_matches_the_catalogue():
+    """The README went stale by three audits before anyone noticed, which is the same
+    failure this whole catalogue is about: a document claiming something the code no
+    longer supports. So the table is generated, and this test is what keeps it honest.
+    """
+    import pathlib
+
+    readme = pathlib.Path(__file__).resolve().parents[2] / "README.md"
+    text = readme.read_text()
+    block = text.split("<!-- BEGIN CATALOGUE TABLE")[1].split("<!-- END CATALOGUE TABLE")[0]
+    for entry in CATALOGUE:
+        assert f"`{entry.library}`" in block, (
+            f"{entry.library} is in the catalogue but not in the README table — "
+            "regenerate it"
+        )
+    listed = block.count("\n|") - 2  # header and separator
+    assert listed == len(CATALOGUE), (
+        f"README table has {listed} rows, catalogue has {len(CATALOGUE)}"
+    )

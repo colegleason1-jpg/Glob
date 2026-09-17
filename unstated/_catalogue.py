@@ -335,4 +335,53 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             ),
         ),
     ),
+    CatalogueEntry(
+        library="idna",
+        component="encode vs the stdlib 'idna' codec",
+        versions_measured="idna 3.11, CPython 3.11 codec",
+        assumption="encoding a domain name is deterministic — one input, one host",
+        cost_when_violated=(
+            "8 of 13 internationalised domains (62%) encode differently under the two "
+            "standards, and 4 of those produce two separately registrable names: "
+            "'strasse.de' encodes as 'xn--strae-oqa.de' under IDNA 2008 and as "
+            "'strasse.de' under IDNA 2003. Two cases split further — one encoder accepts "
+            "and the other refuses. Umlauts, accents and CJK are unaffected, so a test "
+            "suite using 'bucher.de' or a CJK name sees nothing. uts46=True does not "
+            "reconcile them. 0 exceptions on the paths that disagree, 0 warnings."
+        ),
+        upstream_status=(
+            "by design: the two standards differ deliberately and both packages document "
+            "which they implement. Neither says the other is also installed and reachable "
+            "from the same interpreter."
+        ),
+        evidence="docs/cold-test-idna.md",
+        impact=Impact(
+            believed_claim="I am talking to the domain the user gave me.",
+            actual_claim=(
+                "I am talking to one of two different domains, decided by which code path "
+                "encoded it. Measured: 8 of 13 names disagree, and for 4 of them both "
+                "results are valid registrable hosts — the German sharp s yields "
+                "'xn--strae-oqa.de' or 'strasse.de', which are not the same place."
+            ),
+            breaks=(
+                "Anything that encodes a name in one place and uses it in another. An "
+                "allowlist or blocklist checked with one encoder and dereferenced with "
+                "the other compares two different hosts, so a name can be absent from the "
+                "list that was checked and present in the request that was sent. A log or "
+                "audit trail records a host that was not the one contacted. Deduplication "
+                "counts one domain as two, or two as one. Certificate matching, mail "
+                "routing and cache keys all inherit the same split. The ligature and "
+                "dotted-capital cases go further: one encoder refuses the name outright "
+                "while the other resolves it, so a validation step and a fetch step "
+                "disagree about whether the input is a domain at all."
+            ),
+            detection=(
+                "Very poor, and the usual test data hides it. Umlauts, accents and CJK "
+                "encode identically under both standards, so a suite exercising "
+                "'bucher.de', 'cafe.fr' or a Japanese name passes. Only the handful of "
+                "characters the standards changed expose it, and both outputs are "
+                "well-formed names that resolve."
+            ),
+        ),
+    ),
 )

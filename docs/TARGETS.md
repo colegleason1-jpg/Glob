@@ -64,7 +64,8 @@ Audits 1–6 are recorded for completeness and are explicitly **outside** the pr
 | 6 | scikit-learn (train_test_split) | intuition — pre-protocol | yes | FINDING | `cold-test-sklearn.md` |
 | 7 | **boto3** | **protocol, rank 1** | yes (pre-registered) | **FINDING** | `cold-test-boto3.md` |
 | 8 | **packaging** | **protocol, rank 2** | yes (pre-registered) | **FINDING** | `cold-test-packaging.md` |
-| 9 | idna | protocol, rank 5 | yes (pre-registered) | tbd | — |
+| 9 | **idna** | **protocol, rank 5** | yes (pre-registered) | **FINDING** | `cold-test-idna.md` |
+| 10 | urllib3 | protocol, rank 6 | yes (pre-registered) | tbd | — |
 
 Note that audit 2 is already a clean pass. It was published as one, and that is the
 precedent this register formalises.
@@ -79,16 +80,16 @@ Recorded now, before any of them is audited.
 | 2 | packaging | **yes** | version comparison and specifier matching branch on the shape of the version string supplied — **audited, FINDING** |
 | 3 | typing-extensions | **no** | type constructs resolved at definition time; nothing is computed from caller data |
 | 4 | certifi | **no** | a certificate bundle; nothing is computed from caller data |
-| 5 | idna | **yes** | encoding decisions branch on properties of the domain string supplied |
+| 5 | idna | **yes** | encoding decisions branch on properties of the domain string supplied — **audited, FINDING** |
 | 6 | urllib3 | **yes** | `Retry` behaviour depends on whether the caller's request is idempotent, which the caller supplies implicitly |
 | 7 | requests | **yes** | encoding detection, redirect and session behaviour branch on response properties |
 | 8 | charset-normalizer | **yes** | its entire job is inferring an assumption about caller-supplied bytes |
 | 9 | setuptools | **no** | build-time metadata; no runtime data surface |
 | 10 | cryptography | **yes** | key and certificate handling branches on properties of supplied material |
 
-Running rate under the protocol: **2 eligible audited, 2 FINDINGS.** Two data points are
-not a rate either. Ranks 3 and 4 (typing-extensions, certifi) were pre-registered
-ineligible and are skipped on the record, not silently.
+Running rate under the protocol: **3 eligible audited, 3 FINDINGS.** Ranks 3 and 4
+(typing-extensions, certifi) were pre-registered ineligible and are skipped on the record,
+not silently. Three is still not a rate, and the expectation remains that it falls.
 
 ## Standing rules
 

@@ -107,14 +107,39 @@ check_merge(orders, customers, on="customer_id")
 ```
 
 Findings are **measured, not predicted** — the report says "36.7% of these 2,000 values",
-not "this can happen". `CATALOGUE` carries four entries so far, each with the cost measured
+not "this can happen". `CATALOGUE` carries 8 entries, each with the cost measured
 when it was added, its upstream status, and a path to the full run.
 
 Half the tests assert the checks stay **silent**: on a spelled-out month column, on a
 many-to-one join, on duplicate keys that never meet. A check that flags everything is
 switched off in its first week and takes the real findings with it.
 
-## The same defect class, found five times in four codebases
+## The same defect class, found in every library audited so far
+
+<!-- BEGIN CATALOGUE TABLE (generated from unstated.CATALOGUE — do not hand-edit) -->
+| library | component | assumption | measured | detection |
+| --- | --- | --- | --- | --- |
+| `boto3` | `list/scan/query operations` | the caller's result set fits in one page | list_objects_v2 returned 1,000 of 2,500 objects — 40% of the truth, 1,500 silently missing, 0 exceptions and 0 warnings, HTTP 200 and a well-formed... | Very poor, and there is no ceiling to le |
+| `idna` | `encode vs the stdlib 'idna' codec` | encoding a domain name is deterministic — one input, one host | 8 of 13 internationalised domains (62%) encode differently under the two standards, and 4 of those produce two separately registrable names: 'strasse | Very poor, and the usual test data hides |
+| `imbalanced-learn` | `SMOTE` | the caller consumes rankings, not probabilities | PR-AUC down 3-24% (0/20 seeds winning at three of four ratios) and calibration destroyed at every ratio on every seed: Brier +41% to +1232% | Poor |
+| `optuna` | `pruners.MedianPruner` | early rank predicts final rank | +6379% quality cost on 12/12 seeds when eventual winners look worst early, while saving MORE compute than in the favourable case (63% vs 51%) | Only by re-running without the pruner an |
+| `packaging` | `SpecifierSet` | the caller cares only about ordering — not whether a candidate is a pr | 30% of 60 specifier/version pairs disagree with plain ordering, in both directions | Poor in both directions |
+| `pandas` | `DataFrame.merge` | the join key is unique on at least one side | 2 | Poor, and worse than it looks |
+| `python-dateutil` | `parser.parse` | month-before-day ordering, decided per string rather than per column | 37 | Poor |
+| `scikit-learn` | `model_selection.train_test_split` | rows are independent — that no two rows share a subject | accuracy overstated by 14 | The failure looks like SUCCESS, which is |
+<!-- END CATALOGUE TABLE -->
+
+Every row is the same shape:
+
+> **A component that works under an assumption, with nothing in the software signalling
+> when the assumption does not hold — and a safe path that costs something real.**
+
+Full measurement for each is in [`docs/`](docs/), one file per audit. From audit 7 the
+targets are selected by a [pre-registered protocol](docs/TARGETS.md) — descending PyPI
+download order, eligibility recorded before the run — so that a miss is as publishable as
+a hit. Before continuing past six, the [prior-art check](docs/prior-art.md) tested whether
+`pandas-vet`, `pandera` or `deepchecks` already catch any of these. None do.
+
 
 The discipline behind this repository turned out to detect one failure mode repeatedly,
 across code written by four different authors in four unrelated fields:
