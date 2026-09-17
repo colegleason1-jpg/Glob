@@ -82,6 +82,74 @@ be able to upgrade WebSockets; GitHub → Streamlit Community Cloud with `app/ma
 main file and Python 3.12 is the fast path. Read the three warnings about ephemeral storage,
 default-off authentication, and the default market provider before sharing a public link.
 
+## The same defect class, found five times in four codebases
+
+The discipline behind this repository turned out to detect one failure mode repeatedly,
+across code written by four different authors in four unrelated fields:
+
+> **A component that works under an assumption, with nothing in the software signalling
+> when the assumption does not hold — and a safe path that costs something real.**
+
+The last two were found cold, in public libraries, with no prior familiarity with their
+source. They are recorded in full in [`docs/cold-test-optuna.md`](docs/cold-test-optuna.md)
+and [`docs/cold-test-smote.md`](docs/cold-test-smote.md).
+
+### Optuna 5.0.0 — `MedianPruner`
+
+Pruning is a trade: compute bought with quality. Measured on two learning-curve shapes,
+60 trials x 30 steps, 12 seeds:
+
+| curve shape | compute saved | quality cost | seeds worse |
+| --- | --- | --- | --- |
+| early rank predicts final rank | 51% | **0.0%** | 0/12 |
+| eventual winners look worst early | **63%** | **+6379%** | **12/12** |
+
+On the unfavourable shape it saves *more* compute while destroying the answer.
+`n_warmup_steps=15` recovers full quality and still saves 24% — but the constructor
+default is `0`, which prunes from the first step, while the safe setting appears only in
+the docstring's worked example. The docstring states no precondition.
+
+The sampler, ablated the same way, is sound: TPE beats random search on 43 of 45 runs at
+100+ trials. Clean passes are what make the other verdicts worth anything.
+
+### imbalanced-learn 0.14.2 — `SMOTE`
+
+20 seeds per imbalance ratio, logistic regression, resampling inside `imblearn`'s own
+Pipeline so it touches training folds only:
+
+| positives | PR-AUC change | Brier change | mean predicted p vs true base rate |
+| --- | --- | --- | --- |
+| 1% | **−23.8%** (3/20 wins) | **+1232%** (0/20) | 0.3578 vs 0.0150 — **23.85x** |
+| 5% | −8.6% (0/20) | +255% (0/20) | 0.3205 vs 0.0544 — 5.89x |
+| 10% | −7.3% (0/20) | +105% (0/20) | 0.3355 vs 0.1042 — 3.22x |
+| 20% | −3.0% (0/20) | +41% (0/20) | 0.3799 vs 0.2033 — 1.87x |
+
+The plain model's mean prediction is accurate to within 1% of the base rate at every
+ratio. At 1% prevalence the SMOTE model reports a 36% chance of an event that happens 1.5%
+of the time.
+
+Tested against its own steelman: at 1% the entire recall benefit is available by moving
+the threshold, free, with calibration intact — and threshold-moving wins on F1. At 5–10%
+SMOTE keeps a genuine edge of about +0.03 F1. So it is a real trade, and the bill is
+7–9% of PR-AUC and a 3–6x inflation of every reported probability.
+
+Grepping the whole `over_sampling` package for `calibrat`, `probabilit`, `overestimat`,
+`inflat`, `base rate` or `prior shift` returns nothing.
+
+### Why this belongs in this repository
+
+Neither is a bug. Both are arithmetic working correctly under a condition nobody wrote
+down. That is the same thing this codebase was rebuilt to stop doing — the reason every
+assumption here says it is an assumption on screen, and the reason
+[`limited_by`](engine/src/scrcae/optimization/diagnostics.py) and
+[`WRONG_SIGN`](engine/src/scrcae/calibration/elasticity.py) were fixed above rather than
+documented around.
+
+It is also the argument for the method being worth more than any single finding. Four
+codebases, four authors, one failure mode, and in every case the evidence took under an
+hour to produce once the question was asked the right way: *remove the component, re-run,
+count what changed.*
+
 ## The method, turned on the agent that was applying it
 
 The discipline this repository is built around — separate what was measured from what was
