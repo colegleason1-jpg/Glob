@@ -107,7 +107,7 @@ check_merge(orders, customers, on="customer_id")
 ```
 
 Findings are **measured, not predicted** — the report says "36.7% of these 2,000 values",
-not "this can happen". `CATALOGUE` carries <!-- CATALOGUE COUNT -->10<!-- /CATALOGUE COUNT --> entries, each with the cost measured
+not "this can happen". `CATALOGUE` carries <!-- CATALOGUE COUNT -->11<!-- /CATALOGUE COUNT --> entries, each with the cost measured
 when it was added, its upstream status, and a path to the full run.
 
 Half the tests assert the checks stay **silent**: on a spelled-out month column, on a
@@ -120,6 +120,7 @@ switched off in its first week and takes the real findings with it.
 | library | component | assumption | measured | detection |
 | --- | --- | --- | --- | --- |
 | `boto3` | `list/scan/query operations` | the caller's result set fits in one page | list_objects_v2 returned 1,000 of 2,500 objects — 40% of the truth, 1,500 silently missing, 0 exceptions and 0 warnings, HTTP 200 and a well-formed... | Very poor, and there is no ceiling to learn... |
+| `charset-normalizer` | `detect / from_bytes(...).best()` | a successful decode is evidence the encoding is right — true for UTF-8,... | 20 sentences in 20 legacy encodings: 8 round-trip to a DIFFERENT string (40%) and only 6 of 20 named the right encoding, with 0 exceptions and 0 wa... | Effectively none, and the confidence field ... |
 | `idna` | `encode vs the stdlib 'idna' codec` | encoding a domain name is deterministic — one input, one host | 8 of 13 internationalised domains (62%) encode differently under the two standards, and 4 of those produce two separately registrable names: 'stras... | Very poor, and the usual test data hides it |
 | `imbalanced-learn` | `SMOTE` | the caller consumes rankings, not probabilities | PR-AUC down 3-24% (0/20 seeds winning at three of four ratios) and calibration destroyed at every ratio on every seed: Brier +41% to +1232% | Poor |
 | `optuna` | `pruners.MedianPruner` | early rank predicts final rank | +6379% quality cost on 12/12 seeds when eventual winners look worst early, while saving MORE compute than in the favourable case (63% vs 51%) | Only by re-running without the pruner and c... |
@@ -144,10 +145,11 @@ a hit. Before continuing past six, the [prior-art check](docs/prior-art.md) test
 
 
 Every entry was found **cold** — in a public library, with no prior familiarity with its
-source — and they are spread across <!-- PROJECT COUNT -->10<!-- /PROJECT COUNT -->
+source — and they are spread across <!-- PROJECT COUNT -->11<!-- /PROJECT COUNT -->
 independently maintained projects with no shared authorship — AWS, the PyPA, the PSF, the
 pandas, scikit-learn and urllib3 teams, Preferred Networks, and the imbalanced-learn,
-dateutil and idna maintainers. The failure mode is not one team's habit.
+dateutil, idna and charset-normalizer maintainers. The failure mode is not one team's
+habit.
 
 Two of the runs below are kept in full as worked examples.
 

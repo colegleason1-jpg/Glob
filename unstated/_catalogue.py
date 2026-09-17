@@ -498,4 +498,64 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             ),
         ),
     ),
+    CatalogueEntry(
+        library="charset-normalizer",
+        component="detect / from_bytes(...).best()",
+        versions_measured="3.4.6",
+        assumption=(
+            "a successful decode is evidence the encoding is right — true for UTF-8, "
+            "false for every single-byte encoding, where all 256 byte values decode"
+        ),
+        cost_when_violated=(
+            "20 sentences in 20 legacy encodings: 8 round-trip to a DIFFERENT string "
+            "(40%) and only 6 of 20 named the right encoding, with 0 exceptions and 0 "
+            "warnings. The same 20 texts encoded UTF-8 instead: 20/20 correct. "
+            "detect() reports confidence = 1.0 - chaos, and chaos measures whether the "
+            "output looks like text, which a wrong single-byte decode also does: 7 of "
+            "the 8 wrong answers came back at confidence 1.000, and no threshold "
+            "separates right from wrong (wrong 0.900-1.000, correct 0.938-1.000). "
+            "On 40 European surnames misread iso-8859-1 as cp1250, 14 (35%) were "
+            "silently altered and 0 of the 14 changed length."
+        ),
+        upstream_status=(
+            "the ambiguity is genuine and unfixable — single-byte encodings really are "
+            "indistinguishable at the byte level. What is reported is not: confidence is "
+            "computed as 1.0 - chaos in legacy.detect, which measures legibility rather "
+            "than correctness, and upstream has already patched one symptom of this "
+            "(a -0.2 adjustment below 32 bytes, jawah/charset_normalizer#391) without "
+            "changing what the number means above it."
+        ),
+        evidence="docs/cold-test-charset-normalizer.md",
+        impact=Impact(
+            believed_claim="I decoded this file, and the detector was 100% confident.",
+            actual_claim=(
+                "I picked one of several readings that all decode without error, and the "
+                "confidence number reports that the result looks like text — not that it "
+                "is the right text. Measured: 8 of 20 legacy-encoded sentences decoded to "
+                "a different string, 7 of those 8 at confidence 1.000."
+            ),
+            breaks=(
+                "Identity, quietly, and it is the same character count either way. A name "
+                "read in from a legacy CSV, an older system's export or an uploaded file "
+                "arrives altered but well-formed: Muñoz becomes Muńoz, João becomes Joăo, "
+                "Bjørn becomes Bjřrn. 35% of a 40-name European surname sample was changed "
+                "this way and NONE of them changed length, so every field-width check, "
+                "every truncation check and every not-null check passes. Downstream, the "
+                "altered value no longer matches the record it belongs to, so a customer "
+                "is created rather than found, a duplicate ledger is opened under a name "
+                "that differs by one diacritic, a de-duplication pass leaves both rows, "
+                "and a search for the real name returns nothing. Nothing reconciles to the "
+                "wrong total — the totals are fine. The join is what is broken."
+            ),
+            detection=(
+                "Effectively none, and the confidence field actively misdirects. There is "
+                "no exception, no warning, and the number the caller would check reads "
+                "1.000 on the wrong answers. Worse, whether a given text survives depends "
+                "on which characters it happens to contain: iso-8859-1 and cp1250 agree on "
+                "177 of 256 byte values, so a German sentence read as cp1250 changes 0 "
+                "characters and the Spanish sentence next to it changes 3. German test "
+                "fixtures pass while Spanish production data is altered."
+            ),
+        ),
+    ),
 )

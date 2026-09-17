@@ -67,7 +67,8 @@ Audits 1–6 are recorded for completeness and are explicitly **outside** the pr
 | 9 | **idna** | **protocol, rank 5** | yes (pre-registered) | **FINDING** | `cold-test-idna.md` |
 | 10 | **urllib3** | **protocol, rank 6** | yes (pre-registered) | **FINDING** | `cold-test-urllib3.md` |
 | 11 | **requests** | **protocol, rank 7** | yes (pre-registered) | **FINDING** | `cold-test-requests.md` |
-| 12 | charset-normalizer | protocol, rank 8 | yes (pre-registered) | tbd | — |
+| 12 | **charset-normalizer** | **protocol, rank 8** | yes (pre-registered) | **FINDING** | `cold-test-charset-normalizer.md` |
+| 13 | cryptography | protocol, rank 10 | yes (pre-registered) | tbd | — |
 
 Note that audit 2 is already a clean pass. It was published as one, and that is the
 precedent this register formalises.
@@ -85,14 +86,21 @@ Recorded now, before any of them is audited.
 | 5 | idna | **yes** | encoding decisions branch on properties of the domain string supplied — **audited, FINDING** |
 | 6 | urllib3 | **yes** | `Retry` behaviour depends on whether the caller's request is idempotent, which the caller supplies implicitly — **audited, FINDING** |
 | 7 | requests | **yes** | encoding detection, redirect and session behaviour branch on response properties — **audited, FINDING** |
-| 8 | charset-normalizer | **yes** | its entire job is inferring an assumption about caller-supplied bytes — **next** |
+| 8 | charset-normalizer | **yes** | its entire job is inferring an assumption about caller-supplied bytes — **audited, FINDING** |
 | 9 | setuptools | **no** | build-time metadata; no runtime data surface |
-| 10 | cryptography | **yes** | key and certificate handling branches on properties of supplied material |
+| 10 | cryptography | **yes** | key and certificate handling branches on properties of supplied material — **next** |
 
-Running rate under the protocol: **5 eligible audited, 5 FINDINGS.** Ranks 3 and 4
+Running rate under the protocol: **6 eligible audited, 6 FINDINGS.** Ranks 3 and 4
 (typing-extensions, certifi) were pre-registered ineligible and are skipped on the record,
-not silently. Five is still not a rate, and the expectation remains that it falls — the
+not silently. Six is still not a rate, and the expectation remains that it falls — the
 value of this register is that when it does, the denominator is already written down.
+
+**Hypotheses are now registered per audit, not just eligibility.** Audit 12 wrote down four
+before measuring and **two did not reproduce** (input length, chunked sampling). Both are
+published in `cold-test-charset-normalizer.md`. A protocol that only publishes the
+hypotheses that worked is not a protocol, and the finding rate above is a rate over
+*packages*, not over guesses — the guess-level rate is visibly worse, which is the honest
+picture.
 
 **Ranks 11–15, pre-registered now, before any of them is looked at** — so the filter
 cannot be fitted to the results later:
@@ -105,11 +113,17 @@ cannot be fitted to the results later:
 | 14 | pyyaml | **yes** | scalar resolution branches on the shape of the supplied string — the Norway problem is the canonical instance |
 | 15 | botocore | **defer** | boto3 (rank 1) is a thin layer over it and was audited at rank 1; auditing it separately would double-count one codebase unless a surface outside boto3's is chosen |
 
-**Note on rank 8.** charset-normalizer is the detector that was measured at 12/12 in
-audit 11 — it produced the correct answer on every body requests got wrong. Auditing it
-next is uncomfortable in a useful way: the protocol requires the target be audited on its
-own terms whatever audit 11 said about it, and a CLEAN outcome there would be the more
-interesting result.
+**Note on rank 8, written before the audit and kept.** charset-normalizer is the
+detector that was measured at 12/12 in audit 11 — it produced the correct answer on every
+body requests got wrong. Auditing it next is uncomfortable in a useful way: the protocol
+requires the target be audited on its own terms whatever audit 11 said about it, and a
+CLEAN outcome there would be the more interesting result.
+
+**Resolved: FINDING, and both audits are consistent.** Audit 11's corpus was UTF-8, where
+detection is structurally verifiable and scored 20/20 on a wider corpus here. Audit 12's
+finding is about the legacy single-byte encodings, where a successful decode is evidence of
+nothing and the round-trip rate is 12/20 — reported at confidence 1.000 either way. The
+12/12 in audit 11 stands; it measured the case that can be verified.
 
 ## Standing rules
 

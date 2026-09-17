@@ -13,7 +13,8 @@ import random
 import pandas as pd
 import pytest
 
-from unstated import (CATALOGUE, check_dates, check_domain_encoding, check_merge,
+from unstated import (CATALOGUE, check_dates, check_detected_encoding,
+                      check_domain_encoding, check_merge,
                       check_response_encoding, check_retry,
                       check_paginated, check_specifier,
                       check_split)
@@ -530,3 +531,94 @@ def test_the_rule_is_case_sensitive_though_media_types_are_not(serve):
     assert upper.text == truth
     assert check_response_encoding(lower) is not None
     assert check_response_encoding(upper) is None
+
+
+# --------------------------------------------------------------------------- #
+# encoding detection
+#
+# The distinction this check exists for is between evidence and a guess. Both tests
+# below decode real bytes rather than asserting against a stub, because the claim is
+# about what the byte space allows, not about what I believe it allows.
+# --------------------------------------------------------------------------- #
+
+def test_a_legacy_single_byte_payload_is_flagged_as_undecidable():
+    """Nothing in these bytes can rule out any single-byte encoding, so the answer is a
+    guess however confident the detector sounds."""
+    truth = "El niño está aquí y la señora Muñoz ya pagó la factura."
+    payload = truth.encode("iso-8859-1")
+
+    finding = check_detected_encoding(payload, detected="windows-1250")
+    assert finding is not None
+    assert finding.severity == "high"
+    assert finding.observed["single_byte_candidates_that_decode"] == "19 of 19"
+    assert finding.observed["distinct_strings_produced"] > 1
+
+
+def test_the_detector_reports_full_confidence_on_a_wrong_answer():
+    """The reason the check reports ambiguity rather than trying to detect better. If
+    charset-normalizer ever stops returning 1.000 here, this test says so."""
+    from charset_normalizer import detect
+
+    truth = "El niño está aquí y la señora Muñoz ya pagó la factura."
+    payload = truth.encode("iso-8859-1")
+
+    result = detect(payload)
+    assert result["confidence"] >= 0.99
+    assert payload.decode(result["encoding"]) != truth      # confident and wrong
+    assert len(payload.decode(result["encoding"])) == len(truth)  # and the same length
+
+
+def test_whether_a_text_survives_depends_on_the_text_not_the_configuration():
+    """iso-8859-1 and cp1250 agree on 177 of 256 byte values. A German sentence read as
+    cp1250 is unchanged; the Spanish sentence beside it is not. This is why German test
+    fixtures pass while Spanish production data is altered."""
+    agreeing = sum(
+        bytes([i]).decode("iso-8859-1") == bytes([i]).decode("cp1250", errors="replace")
+        for i in range(256)
+    )
+    assert agreeing == 177
+
+    german = "Grüße aus Köln, alles schön hier; Straße gesperrt bis Montag."
+    spanish = "El niño está aquí y la señora Muñoz ya pagó la factura."
+
+    assert german.encode("iso-8859-1").decode("cp1250") == german
+    assert spanish.encode("iso-8859-1").decode("cp1250") != spanish
+
+
+def test_valid_utf8_is_not_flagged():
+    """UTF-8 is structurally verifiable: of 12 legacy-encoded sentences measured, 0 were
+    also valid UTF-8, so a successful decode is real evidence."""
+    for truth in ["Grüße aus Köln", "El niño está aquí", "日本語のテキスト", "Москва"]:
+        assert check_detected_encoding(truth.encode("utf-8")) is None
+
+
+def test_ascii_and_bom_and_empty_are_not_flagged():
+    """Three cases where nothing is being decided, and the check must stay quiet."""
+    assert check_detected_encoding(b"item,qty\nwidget,2\n") is None
+    assert check_detected_encoding(b"\xef\xbb\xbf" + "café".encode("utf-8")) is None
+    assert check_detected_encoding(b"") is None
+
+
+def test_utf8_survives_the_corpus_that_legacy_encodings_do_not():
+    """The measurement the entry turns on, reduced to its smallest honest form: the same
+    texts round-trip under UTF-8 and do not under their own legacy encodings."""
+    from charset_normalizer import from_bytes
+
+    corpus = [
+        ("cp1252", "Le devis « signé » coûte 15 € - merci d'avance, M. Lefèvre."),
+        ("iso-8859-2", "Zażółć gęślą jaźń - to jest polskie zdanie testowe."),
+        ("koi8-r", "Москва, привет из России; счёт на оплату готов."),
+        ("cp1254", "İstanbul'da hava çok güzel, faturanız hazır efendim."),
+    ]
+
+    def round_trips(payload, truth):
+        match = from_bytes(payload).best()
+        if match is None:
+            return False
+        try:
+            return payload.decode(match.encoding) == truth
+        except (UnicodeDecodeError, LookupError):
+            return False
+
+    assert sum(round_trips(t.encode("utf-8"), t) for _, t in corpus) == len(corpus)
+    assert sum(round_trips(t.encode(e), t) for e, t in corpus) < len(corpus)
