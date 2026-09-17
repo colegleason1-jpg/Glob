@@ -18,8 +18,17 @@ standards deliberately differ on several characters.
 
 ## Measured
 
-13 internationalised domains, chosen to span both the characters the standards changed and
+12 internationalised domains, chosen to span both the characters the standards changed and
 the ones they did not:
+
+> **Correction, 2026-09-17.** This section previously said "13 internationalised domains"
+> and reported **8 of 13 (62%)** disagreeing, of which **4** produce two registrable names.
+> Those numbers are wrong and were internally inconsistent — 4 + 2 does not reach 8. The
+> table has always held **12** domains (one row carries two), and re-measurement gives
+> **7 of 12 (58%)**, of which **5** produce two registrable names and **2** are refusals:
+> 5 + 2 = 7. The error was found by the adversarial verifier in the version-range sweep,
+> re-measured directly before being applied, and the original figures are kept here rather
+> than replaced. The version range below was established by the same sweep.
 
 | input | idna 3.11 (2008) | `.encode("idna")` (2003) | same? |
 | --- | --- | --- | --- |
@@ -37,14 +46,27 @@ the ones they did not:
 
 | | |
 | --- | --- |
-| domains disagreeing | **8 of 13 (62%)** |
-| …producing two valid, separately registrable names | **4** |
+| domains disagreeing | **7 of 12 (58%)** |
+| …producing two valid, separately registrable names | **5** |
 | …where one encoder accepts and the other refuses | 2 |
 | exceptions on the disagreeing paths | **0** |
 | warnings | **0** |
 
 **`uts46=True` does not reconcile them.** The documented compatibility mode still returns
 the IDNA 2008 result: `idna.encode("straße.de", uts46=True)` is `xn--strae-oqa.de`.
+
+## Version range
+
+Measured **exhaustively, not sampled**: every one of the 34 releases that installs on
+CPython 3.11, from **0.6 (2014-04-29)** through **3.20 (2026-09-17, current latest)** —
+**12.4 years**, all 12 per-domain outputs byte-for-byte identical at every version. No
+release fixes it, warns about it, or narrows it.
+
+Eight releases (0.2–0.5, 0.7–1.0) will not install on a modern interpreter, so 0.6 is an
+install island rather than a contiguous floor. The `uts46=True` result holds from 2.0
+onward; the kwarg does not exist at 0.6 or 1.1, where it raises `TypeError`.
+
+**Not resolved — upstream treats the divergence as by design.**
 
 ## Impact
 

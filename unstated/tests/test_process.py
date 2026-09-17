@@ -136,3 +136,37 @@ def test_claude_md_loads_the_rules_automatically():
             f"CLAUDE.md no longer carries the rule {rule!r} inline. Pointing at a file is "
             "not enough; the hard rules must be in the text that always loads."
         )
+
+
+def test_is_resolved_reads_the_verdict_not_the_whole_string():
+    """`resolved_in` carries an explanation after the verdict — "not resolved — upstream
+    treats this as by design". Two earlier versions of this predicate got it wrong in
+    opposite directions: one reported four unresolved entries as fixed, the next reported
+    every entry as unresolved because "" is a prefix of everything."""
+    from unstated._catalogue import CatalogueEntry
+
+    def entry(resolved_in):
+        return CatalogueEntry(
+            library="l", component="c", versions_measured="v", assumption="a",
+            cost_when_violated="c", upstream_status="u", evidence="e",
+            affected_versions="x", resolved_in=resolved_in,
+        )
+
+    for verdict, expected in [
+        ("not resolved", False),
+        ("not resolved — upstream treats the divergence as by design", False),
+        ("unknown", False),
+        ("", False),
+        ("   ", False),
+        ("Not Resolved", False),
+        ("42.0.0 (2024-01-23)", True),
+        ("partially: 26.0 (2026-01-21)", True),
+    ]:
+        assert entry(verdict).is_resolved is expected, f"{verdict!r} misread"
+
+
+def test_every_entry_carries_a_measured_version_range():
+    """A single-version entry is an under-specified claim. Added after the sweep of
+    2026-09-17 ranged all eleven."""
+    unranged = [e.library for e in CATALOGUE if e.affected_versions == "not yet ranged"]
+    assert not unranged, f"entries with no measured range: {unranged}"

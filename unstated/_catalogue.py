@@ -62,7 +62,18 @@ class CatalogueEntry:
 
     @property
     def is_resolved(self) -> bool:
-        return self.resolved_in not in ("not resolved", "unknown", "")
+        """True when upstream has fixed this, wholly or in part.
+
+        ``resolved_in`` often carries an explanation after the verdict — "not resolved —
+        upstream treats the divergence as by design" — so this tests the opening word, not
+        the whole string. An earlier version compared the whole string and reported four
+        unresolved entries as fixed.
+        """
+        verdict = self.resolved_in.strip().lower()
+        if not verdict:
+            return False
+        return not verdict.startswith(("not resolved", "unknown"))
+
 
     def __str__(self) -> str:
         span = self.affected_versions if self.affected_versions != "not yet ranged" else self.versions_measured
@@ -75,6 +86,17 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="python-dateutil",
         component="parser.parse",
         versions_measured="2.9.0.post0",
+        affected_versions=(
+            "present in all 14 releases measured from 2.1 (2012-03-28) through 2.9.0.post0 "
+            "(2024-03-01, current latest) — 12.0 years. The dayfirst=True/ISO-8601 half is "
+            "narrower and is a REGRESSION: absent at 2.5.1 and every release before it "
+            "(where the documented remedy genuinely works, 0/2000 wrong), introduced at "
+            "2.5.2 (2016-03-27) in a partly-raising form, fully silent from 2.5.3 "
+            "(2016-04-21) onward — 8.0 years"
+        ),
+        resolved_in=(
+            "not resolved"
+        ),
         assumption="month-before-day ordering, decided per string rather than per column",
         cost_when_violated=(
             "37.2% of a 2,000-row day-first column silently wrong, median 118 days off, "
@@ -112,6 +134,15 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="pandas",
         component="DataFrame.merge",
         versions_measured="3.0.5",
+        affected_versions=(
+            "present and silent in 12 releases sampled from 0.25.2 (2019-10-19) through 3.0.5 "
+            "(2026-07-22, current latest) — 6.8 years. 12 of the 57 final releases in that "
+            "range; the other 45 are bracketed, not measured. Nothing is known about 0.24.2 "
+            "or earlier: no wheel installs on the oldest obtainable interpreter"
+        ),
+        resolved_in=(
+            "not resolved"
+        ),
         assumption="the join key is unique on at least one side",
         cost_when_violated=(
             "2.02x row inflation and +105.4% on the summed column, with 0 exceptions, "
@@ -149,6 +180,16 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="imbalanced-learn",
         component="SMOTE",
         versions_measured="0.14.2",
+        affected_versions=(
+            "present, stable to four significant figures, in all 10 releases measured from 0.6.0 "
+            "(2019-12-05) through 0.14.2 (2026-06-07, current latest) — 6.5 years, covering "
+            "every minor series from 0.6 to 0.14. ~8 point releases inside the span are "
+            "bracketed rather than measured. 0.5.0 and below could not be run (they import "
+            "sklearn modules removed before the oldest available interpreter)"
+        ),
+        resolved_in=(
+            "not resolved — and across 6.5 years and ten releases the library never added a warning, deprecation, parameter or docstring sentence about the precondition"
+        ),
         assumption="the caller consumes rankings, not probabilities",
         cost_when_violated=(
             "PR-AUC down 3-24% (0/20 seeds winning at three of four ratios) and "
@@ -191,6 +232,13 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="optuna",
         component="pruners.MedianPruner",
         versions_measured="5.0.0",
+        affected_versions=(
+            "present in all 5 releases measured from 1.0.0 (2020-01-14) through 5.0.0 "
+            "(2026-09-07, current latest) — 6.6 years"
+        ),
+        resolved_in=(
+            "not resolved"
+        ),
         assumption="early rank predicts final rank",
         cost_when_violated=(
             "+6379% quality cost on 12/12 seeds when eventual winners look worst early, "
@@ -226,6 +274,18 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="scikit-learn",
         component="model_selection.train_test_split",
         versions_measured="1.9.1",
+        affected_versions=(
+            "present in all 8 releases measured from 0.22.2.post1 (2020-03-04) through 1.9.1 "
+            "(2026-09-10, current latest) — 6.5 years, plus 5 further in-span releases "
+            "confirmed independently. What is invariant is the ABSENCE of group support, of "
+            "any warning, and of the words group/independent/leak/subject/cluster in the "
+            "docstring — not the code, which changed signature at 0.24.2 and grew its "
+            "docstring from 2,904 to 4,997 characters. Versions before 0.22.2.post1 could "
+            "not be installed"
+        ),
+        resolved_in=(
+            "not resolved"
+        ),
         assumption="rows are independent — that no two rows share a subject",
         cost_when_violated=(
             "accuracy overstated by 14.8% and ROC-AUC by 9.5% on 12 of 12 trials "
@@ -265,6 +325,17 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="boto3",
         component="list/scan/query operations",
         versions_measured="1.43.96",
+        affected_versions=(
+            "present at all 11 releases sampled from 1.4.4 (2017-01-16) through 1.43.96 "
+            "(2026-09-16, current latest) — 9.7 years. 11 of 2,078 releases in that range "
+            "(0.53%), largest untested gap 416 consecutive releases. The truncation is "
+            "server-side and the backend was held fixed, so what the sweep establishes is "
+            "the negative result: boto3 never grew a call-site signal. The exact row counts "
+            "are harness-dependent and are not version-range constants"
+        ),
+        resolved_in=(
+            "not resolved"
+        ),
         assumption="the caller's result set fits in one page",
         cost_when_violated=(
             "list_objects_v2 returned 1,000 of 2,500 objects — 40% of the truth, 1,500 "
@@ -311,6 +382,16 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="packaging",
         component="SpecifierSet",
         versions_measured="24.0",
+        affected_versions=(
+            "present from 14.3 (2014-11-20) — the first release that shipped packaging.specifiers "
+            "at all, so the defect has existed for the entire lifetime of the API — through "
+            "25.0 (2025-04-19) for the full 18-of-60 behaviour, measured at 24 releases. "
+            "The exact-pin-accepts-a-local-build half survives the fix and is still present "
+            "and still silent at 26.3 (2026-08-04, current latest): 11.7 years unresolved"
+        ),
+        resolved_in=(
+            "partially: 26.0 (2026-01-21), already in 26.0rc1 — the pre-release default flips and 16 of the 18 disagreements disappear, measured at all seven 26.x releases (2 of 60, 3.3%). The remaining 2 of 60, which this entry rates the more severe direction, are NOT resolved. The 26.x change is itself silent (0 warnings), so upgrading past 25.0 reverses the pre-release behaviour without saying so"
+        ),
         assumption=(
             "the caller cares only about ordering — not whether a candidate is a "
             "pre-release, or carries a local build segment"
@@ -360,10 +441,22 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="idna",
         component="encode vs the stdlib 'idna' codec",
         versions_measured="idna 3.11, CPython 3.11 codec",
+        affected_versions=(
+            "present, with all 12 per-domain outputs byte-for-byte identical, in every one of the "
+            "34 releases that install on CPython 3.11 — 0.6 (2014-04-29), 1.1 (2015-01-27), "
+            "and every release from 2.0 (2015-05-30) through 3.20 (2026-09-17, current "
+            "latest) — measured exhaustively, not sampled. 12.4 years. Eight releases "
+            "(0.2-0.5, 0.7-1.0) will not install on a modern interpreter, so 0.6 is an "
+            "install island rather than a contiguous floor. The uts46=True sub-claim holds "
+            "from 2.0 onward; the kwarg does not exist at 0.6 or 1.1"
+        ),
+        resolved_in=(
+            "not resolved — upstream treats the divergence as by design"
+        ),
         assumption="encoding a domain name is deterministic — one input, one host",
         cost_when_violated=(
-            "8 of 13 internationalised domains (62%) encode differently under the two "
-            "standards, and 4 of those produce two separately registrable names: "
+            "7 of 12 internationalised domains (58%) encode differently under the two "
+            "standards, and 5 of those produce two separately registrable names: "
             "'strasse.de' encodes as 'xn--strae-oqa.de' under IDNA 2008 and as "
             "'strasse.de' under IDNA 2003. Two cases split further — one encoder accepts "
             "and the other refuses. Umlauts, accents and CJK are unaffected, so a test "
@@ -380,7 +473,7 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             believed_claim="I am talking to the domain the user gave me.",
             actual_claim=(
                 "I am talking to one of two different domains, decided by which code path "
-                "encoded it. Measured: 8 of 13 names disagree, and for 4 of them both "
+                "encoded it. Measured: 7 of 12 names disagree, and for 5 of them both "
                 "results are valid registrable hosts — the German sharp s yields "
                 "'xn--strae-oqa.de' or 'strasse.de', which are not the same place."
             ),
@@ -409,6 +502,17 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="urllib3",
         component="util.retry.Retry",
         versions_measured="2.6.3",
+        affected_versions=(
+            "present at 11 releases measured (plus 5 added by independent re-measurement) from "
+            "1.9 (2014-07-07, the release that introduced util.retry.Retry) through 2.8.0 "
+            "(2026-09-15, current latest) — 12.2 years. Behaviourally unchanged, but NOT "
+            "byte-identical: retry.py has ~20 distinct revisions over the span and grew "
+            "9,549 to 20,151 bytes. check_retry's third gap cannot fire before 1.26.0, "
+            "where allowed_methods did not yet exist"
+        ),
+        resolved_in=(
+            "not resolved — though 2.8.0 is the first release ever to attach a deprecation to Retry.__init__ (a FutureWarning that an empty allowed_methods will skip retries for all verbs in v3.0). The three gaps this entry measures still emit nothing"
+        ),
         assumption=(
             "the caller wants connection-level retries only, spaced by nothing, on "
             "methods the library judged idempotent"
@@ -463,6 +567,18 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="requests",
         component="Response.text",
         versions_measured="2.33.1",
+        affected_versions=(
+            "present, silent, and identical on every defect-specific measure in all 9 releases "
+            "sampled from 2.2.0 (2014-01-09) through 2.34.2 (2026-05-14, current latest) — "
+            "12.4 years. The source line `if \"text\" in content_type: return \"ISO-8859-1\"` "
+            "is byte-identical in 82 of the 83 non-prerelease 2.x releases. The remedy is "
+            "weaker on older versions than the headline suggests: apparent_encoding scores "
+            "12/12 on 2.31+ but degrades to 9/12 at 2.18.4-2.25.1 and 7/12 at 2.9.2. The "
+            "application/json row is not invariant — it returned None before 2.25.1"
+        ),
+        resolved_in=(
+            "not resolved"
+        ),
         assumption=(
             "a text/* response that omits charset is Latin-1, per RFC 2616 §3.7.1 — a "
             "default RFC 7231 removed in 2014"
@@ -523,6 +639,18 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
         library="charset-normalizer",
         component="detect / from_bytes(...).best()",
         versions_measured="3.4.6",
+        affected_versions=(
+            "present in all 16 releases measured from 0.3.0 (2019-09-12) through 3.5.1 "
+            "(2026-08-15, current latest) — 6.9 years, always silent, 0 exceptions and 0 "
+            "warnings, with 45-65% of a clean legacy-encoded corpus round-tripping to a "
+            "different string at every version. The confidence field became harder to guard "
+            "against at 2.0.0 (2021-07-02): at 1.4.1 wrong answers span 0.849-1.000 against "
+            "0.966-1.000 for correct ones (already overlapping), and from 2.0.0 every answer "
+            "on clean text is exactly 1.000. Versions below 0.3.0 were not tested"
+        ),
+        resolved_in=(
+            "not resolved — the underlying ambiguity is genuinely unfixable, so the entry is about silent unqualified reporting, not detection accuracy"
+        ),
         assumption=(
             "a successful decode is evidence the encoding is right — true for UTF-8, "
             "false for every single-byte encoding, where all 256 byte values decode"
