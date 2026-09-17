@@ -39,8 +39,34 @@ reviewable, and re-runnable against a new library version.
 5. **Write the check**, and test that it stays silent on the safe case.
 6. **Record upstream status.** Filed, documented, working-as-intended, or unknown.
 
+7. **Write the impact.** Who receives the wrong thing, and what do they do with it? A
+   bug is not a property of software — it is software not giving its users the correct
+   thing — so an entry that stops at "the library behaves this way" is a curiosity, not a
+   finding.
+
 Step 3 is the gate. A component that raises is not a catalogue entry, however wrong the
 caller was.
+
+### The impact section, and its one rule
+
+Four required parts, enforced by test:
+
+| part | what it is |
+| --- | --- |
+| **mechanism** | what the wrong number does downstream, *derived* from the measurement, carrying its figure |
+| **lands on** | the function or role that receives it |
+| **scenario** | arithmetic the reader redoes with their own numbers |
+| **detection** | would anyone notice, and when |
+
+**The scenario never asserts what a named party lost.** It shows the arithmetic and labels
+any magnitude the reader did not supply as illustrative. An invented figure — "this costs
+banks millions" — is precisely the unmeasured claim this catalogue exists to catch, and it
+collapses the first time somebody checks it. A fully parametric scenario, with no invented
+magnitude at all, is the ideal; the pandas entry is one.
+
+This is also what makes the catalogue indexable for writing later: the interesting entries
+are the ones where **detection** is poor and **lands on** is a function that signs
+something.
 
 ## The gap in what has been done so far
 
