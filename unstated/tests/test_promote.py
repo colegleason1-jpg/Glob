@@ -20,9 +20,17 @@ import promote  # noqa: E402
 
 
 def _complete():
-    """A record that passes, built from the real audit 14 staging file."""
+    """A record that passes, built from audit 14's staging file with its verdict reset.
+
+    Audit 14 is itself REFUTED, so the live record does not validate — that is the point
+    of it. These tests need a record that would pass, to check what each mutation breaks,
+    so the fields the refutation set are normalised back here.
+    """
     rec = json.loads((ROOT / "staging" / "audit-014-pluggy.json").read_text())
     rec["verifier"] = {"refuted": False, "reason": "checked"}
+    rec["proposed_verdict"] = "FINDING"
+    rec.pop("owner_review", None)
+    rec.pop("adopted_correction", None)
     return rec
 
 
