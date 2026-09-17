@@ -286,4 +286,53 @@ CATALOGUE: tuple[CatalogueEntry, ...] = (
             ),
         ),
     ),
+    CatalogueEntry(
+        library="packaging",
+        component="SpecifierSet",
+        versions_measured="24.0",
+        assumption=(
+            "the caller cares only about ordering — not whether a candidate is a "
+            "pre-release, or carries a local build segment"
+        ),
+        cost_when_violated=(
+            "30% of 60 specifier/version pairs disagree with plain ordering, in both "
+            "directions. 16 too strict: '>=1.0' rejects 2.0rc1, 2.0b2, 2.0a1 and "
+            "2.0.dev1, all of which order above 1.0. 2 too loose: '==2.0' accepts "
+            "2.0+local and 2.0+ubuntu1 — and 2.0+patched.by.vendor. 0 exceptions, 0 "
+            "warnings; every answer is a plain True or False and both are plausible."
+        ),
+        upstream_status=(
+            "specified: both behaviours are PEP 440 and documented, and prereleases= "
+            "exists. Nothing at the call site says the constraint does not mean what it "
+            "reads as."
+        ),
+        evidence="docs/cold-test-packaging.md",
+        impact=Impact(
+            believed_claim="I pinned this to exactly version 2.0.",
+            actual_claim=(
+                "I pinned this to 2.0 or any local build labelled 2.0+anything. Measured: "
+                "SpecifierSet('==2.0') accepts 2.0+local, 2.0+ubuntu1 and "
+                "2.0+patched.by.vendor. Separately, '>=1.0' rejects 2.0rc1 and 2.0.dev1, "
+                "which order above 1.0 — 30% of 60 pairs depart from ordering."
+            ),
+            breaks=(
+                "Two different things, in opposite directions. The loose direction breaks "
+                "any statement that a specific artifact is what runs: an exact pin is "
+                "what people write when they mean this build and no other, and it accepts "
+                "a rebuilt or vendor-patched one carrying the same base version. An "
+                "attestation that the audited artifact is deployed does not hold. The "
+                "strict direction breaks availability of anything published as a "
+                "pre-release: a fix shipped as 2.0rc1 does not satisfy '>=1.0', so a "
+                "resolver reports no matching version while one orders above the bound, "
+                "and a team concludes the fix is unavailable."
+            ),
+            detection=(
+                "Poor in both directions. The result is a boolean, and False reads as "
+                "'no such version' rather than 'excluded by a rule you did not state'. "
+                "The loose direction is worse still: the pin resolves, the install "
+                "succeeds, and the version string in the lockfile is the one you asked "
+                "for."
+            ),
+        ),
+    ),
 )

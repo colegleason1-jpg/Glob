@@ -31,6 +31,7 @@ from .checks.dates import check_dates
 from .checks.frames import check_merge
 from .checks.splits import check_split
 from .checks.aws import check_paginated
+from .checks.versions import check_specifier
 
-__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split", "check_paginated"]
+__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split", "check_paginated", "check_specifier"]
 __version__ = "0.1.0"

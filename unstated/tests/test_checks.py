@@ -13,7 +13,8 @@ import random
 import pandas as pd
 import pytest
 
-from unstated import CATALOGUE, check_dates, check_merge, check_paginated, check_split
+from unstated import (CATALOGUE, check_dates, check_merge, check_paginated, check_specifier,
+                      check_split)
 
 
 # --------------------------------------------------------------------------- #
@@ -227,3 +228,43 @@ def test_consequences_are_not_asserted_about_anyone_in_particular():
             assert invented not in text.lower(), (
                 f"{entry}: breaks asserts a consequence nobody measured ({invented!r})"
             )
+
+
+# --------------------------------------------------------------------------- #
+# version specifiers
+# --------------------------------------------------------------------------- #
+
+def test_a_specifier_that_silently_excludes_prereleases_is_flagged():
+    """'>=1.0' reads as 'orders at or above 1.0'. It rejects 2.0rc1, which does."""
+    finding = check_specifier(">=1.0", ["1.5", "2.0", "2.0rc1", "2.0.dev1"])
+    assert finding is not None
+    assert finding.observed["stricter_than_it_reads"] == 2
+    assert finding.observed["looser_than_it_reads"] == 0
+    assert finding.severity == "medium"
+    assert "prereleases=True" in finding.remedy
+
+
+def test_an_exact_pin_that_accepts_a_local_build_is_flagged_high():
+    """The sharper direction: '==2.0' accepts 2.0+patched.by.vendor. An exact pin is
+    what people write when they mean this artifact and no other, so a finding here is
+    about what is running, not about which version resolved."""
+    finding = check_specifier("==2.0", ["2.0", "2.0+local", "2.0+patched.by.vendor"])
+    assert finding is not None
+    assert finding.observed["looser_than_it_reads"] == 2
+    assert finding.severity == "high", "accepting the wrong artifact outranks strictness"
+    assert "pin the artifact by hash" in finding.remedy
+
+
+def test_a_specifier_decided_entirely_by_ordering_is_not_flagged():
+    """The silence case. Plain final releases against a plain bound must pass clean, or
+    the check fires on every requirements file in existence."""
+    assert check_specifier(">=1.0", ["1.0", "1.5", "2.0", "3.1"]) is None
+    assert check_specifier(">=1.0,<3.0", ["1.0", "2.5"]) is None
+
+
+def test_unparseable_input_is_skipped_rather_than_flagged():
+    """Versions that are not PEP 440 and specifiers that are not specifiers are somebody
+    else's problem, and a loud one."""
+    assert check_specifier(">=1.0", ["not-a-version", "also bad"]) is None
+    assert check_specifier("this is not a specifier", ["1.0"]) is None
+    assert check_specifier(">=1.0", []) is None
