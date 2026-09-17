@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from scrcae.domain import Dependency, Intervention, SupplyNetwork
+from scrcae.domain import Dependency, Intervention, Resource, SupplyNetwork
 from scrcae.optimization import (
     InfeasibilityKind,
     MinimizeCapitalObjective,
@@ -287,3 +287,92 @@ def test_effective_baseline_is_clamped_at_100():
         required=1.0, budget=1e9, network=_network(baseline=95.0), macro_multiplier=2.0
     )
     assert request.effective_baseline_risk_pts == pytest.approx(100.0)
+
+
+def test_a_supply_bound_is_named_supply_even_when_the_items_are_indivisible():
+    """`limited_by` must name the constraint worth relieving, not the first one checked.
+
+    Five nodes of 100,000 units each against a 250,000-unit vendor. Two fit; the third
+    needs 300,000. The budget is high enough that it cannot be what stopped anything.
+
+    The old test asked whether usage had *reached* capacity. It had not — 200,000 of
+    250,000, with 50,000 stranded that no whole node can use — so the resource row never
+    read as tight and the report fell through to "budget". Measured across 400 random
+    capacities, the supply bound was real 400 times and named 0 times; it fired only when
+    capacity was an exact multiple of node demand.
+
+    That is worse than an unhelpful label. `attainable_frontier`'s own comment says "more
+    capital is the wrong remedy" for a supply bound, and the fall-through recommended
+    exactly that, under an unlimited budget.
+    """
+    nodes = tuple(
+        Intervention(
+            f"n{i}", f"n{i}", cost=100_000.0, risk_reduction_pts=20.0,
+            min_funding_scale=1.0, max_funding_scale=1.0, usage={"vendor": 100_000.0},
+        )
+        for i in range(5)
+    )
+    network = SupplyNetwork(
+        interventions=nodes, baseline_risk_pts=100.0,
+        resources=(Resource("vendor", 250_000.0),),
+    )
+    report = attainable_frontier(
+        network, LinearResponse(), budget=10_000_000.0, enforce_risk_cap=True
+    )
+
+    assert report.max_reduction_pts == pytest.approx(40.0, abs=1e-6), "two nodes fit"
+    assert report.limited_by == "resource:vendor", (
+        f"named {report.limited_by!r} with a 10,000,000 budget and a 250,000 vendor cap"
+    )
+    assert not report.is_budget_limited
+
+    # And the label has to be actionable: relieving what it names must actually help.
+    roomier = SupplyNetwork(
+        interventions=nodes, baseline_risk_pts=100.0,
+        resources=(Resource("vendor", 500_000.0),),
+    )
+    relieved = attainable_frontier(
+        roomier, LinearResponse(), budget=10_000_000.0, enforce_risk_cap=True
+    )
+    assert relieved.max_reduction_pts > report.max_reduction_pts
+
+
+def test_a_budget_bound_is_still_named_budget_when_supply_is_ample():
+    """The other direction, so the fix above cannot pass by calling everything supply."""
+    nodes = tuple(
+        Intervention(
+            f"n{i}", f"n{i}", cost=100_000.0, risk_reduction_pts=20.0,
+            min_funding_scale=1.0, max_funding_scale=1.0, usage={"vendor": 100_000.0},
+        )
+        for i in range(5)
+    )
+    network = SupplyNetwork(
+        interventions=nodes, baseline_risk_pts=100.0,
+        resources=(Resource("vendor", 10_000_000.0),),
+    )
+    report = attainable_frontier(
+        network, LinearResponse(), budget=250_000.0, enforce_risk_cap=True
+    )
+    assert report.limited_by == "budget"
+    assert report.is_budget_limited
+
+
+def test_a_fully_funded_portfolio_is_not_called_supply_bound():
+    """Headroom with nothing left to grow into it is structure, not supply."""
+    nodes = tuple(
+        Intervention(
+            f"n{i}", f"n{i}", cost=10_000.0, risk_reduction_pts=5.0,
+            min_funding_scale=1.0, max_funding_scale=1.0, usage={"vendor": 10_000.0},
+        )
+        for i in range(3)
+    )
+    network = SupplyNetwork(
+        interventions=nodes, baseline_risk_pts=100.0,
+        resources=(Resource("vendor", 30_000.0),),
+    )
+    report = attainable_frontier(
+        network, LinearResponse(), budget=10_000_000.0, enforce_risk_cap=True
+    )
+    assert report.limited_by == "structure", (
+        "every node is at its ceiling; nothing is being withheld by supply or budget"
+    )

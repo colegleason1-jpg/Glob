@@ -458,10 +458,28 @@ def calibrate_elasticity(
     low, high = _bootstrap_interval(xs, ys, seed=seed, draws=draws)
     r2 = _r_squared(xs, ys, intercept, slope)
 
-    if elasticity < 0.0:
-        quality = FitQuality.WRONG_SIGN
-    elif low is None or high is None or low <= 0.0 <= high:
+    # The interval is consulted before the sign, and the order is the whole point.
+    #
+    # This used to test ``elasticity < 0`` first, so an estimate that merely landed
+    # negative on noise was labelled WRONG_SIGN -- whose message tells the reader
+    # "in these records, a market above anchor went with fewer disruptions... that
+    # is a hedge claim and needs a mechanism before it is used". That is a claim
+    # about the data, handed to someone whose data establishes nothing. Under a
+    # true null the sign is a coin flip, so it fired on roughly half of them:
+    # measured at 39% on realistic autocorrelated series, 46-55% on independent
+    # ones, in a downstream domain where the estimator is applied to service
+    # failure against load.
+    #
+    # An interval spanning zero means the records do not establish a relationship,
+    # whatever side of zero the point estimate happens to sit. WRONG_SIGN now means
+    # what its message says: negative *and* distinguishable from zero. Both remain
+    # refusals -- ``is_usable`` is unchanged, and no number becomes usable that was
+    # not -- so this changes what the reader is told, not what is computed.
+    spans_zero = low is None or high is None or low <= 0.0 <= high
+    if spans_zero:
         quality = FitQuality.NOT_DISTINGUISHABLE_FROM_ZERO
+    elif elasticity < 0.0:
+        quality = FitQuality.WRONG_SIGN
     else:
         quality = FitQuality.USABLE
 

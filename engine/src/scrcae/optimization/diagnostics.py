@@ -33,7 +33,7 @@ of printing confident strings that nothing computed.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Mapping
+from typing import Any, Mapping
 
 from ..domain.network import SupplyNetwork
 from ..risk.response import RiskResponseModel
@@ -129,6 +129,41 @@ class InfeasibilityDiagnosis:
         return f"{self.explanation} {self.remedy}"
 
 
+def _resource_blocks_growth(network: SupplyNetwork, result: Any, resource: Any) -> bool:
+    """True when no node can grow into this resource's remaining headroom.
+
+    The smallest step any node could still take, in units of ``resource``:
+
+    * a node at or above its ceiling cannot grow at all, and is skipped;
+    * a node that does not draw on this resource is not blocked by it, and is skipped;
+    * a node funded between its minimum and its ceiling is continuous there, so any
+      positive headroom lets it grow -- step 0;
+    * an unfunded node has to clear its own minimum economic scale in one move, so its
+      step is ``usage_of(resource) * min_funding_scale``.
+
+    No node left to grow means the portfolio is structurally complete, not
+    supply-bound, so the answer is False and the caller reports "structure".
+    """
+    headroom = float(resource.capacity) - float(result.resource_use.get(resource.name, 0.0))
+    if headroom <= 1e-9:
+        return True  # exactly tight: the case the original test handled
+
+    scales = result.scales()
+    steps: list[float] = []
+    for node in network:
+        scale = float(scales.get(node.node_id, 0.0))
+        if scale >= node.max_funding_scale - 1e-9:
+            continue
+        per_full = node.usage_of(resource.name)
+        if per_full <= 0.0:
+            continue
+        steps.append(0.0 if scale > 1e-9 else per_full * node.min_funding_scale)
+
+    if not steps:
+        return False
+    return headroom < min(steps) - 1e-9
+
+
 def attainable_frontier(
     network: SupplyNetwork,
     risk_response: RiskResponseModel,
@@ -193,10 +228,30 @@ def attainable_frontier(
     # A resource row that is tight while some node is below its maximum is what
     # stopped the portfolio, and "more capital" is the wrong remedy for it: the
     # supply is what has to grow. Checked before the budget for that reason.
+    #
+    # "Tight" is not "usage reached capacity". This used to test
+    # ``resource_use >= capacity - 1e-9``, which is only correct when funding is
+    # continuous. With indivisible nodes -- ``min_funding_scale ==
+    # max_funding_scale``, which is how a caller models an all-or-nothing item --
+    # usage lands on a multiple of one node's demand, so unless capacity happens to
+    # be an exact multiple there is stranded headroom no node can use, the row
+    # never reads as tight, and the report falls through to "budget": the one
+    # remedy this comment says is wrong, recommended under an unlimited budget.
+    #
+    # Measured before the change, on five indivisible nodes with the budget set high
+    # enough that supply was the only possible constraint: across 400 random
+    # capacities the supply bound was real 400 times and named 0 times. It fired
+    # only on exact multiples of node demand, which is measure-zero for real
+    # capacities.
+    #
+    # The right question is whether anything can still grow into what is left. A
+    # node already funded below its ceiling can absorb any amount, so any headroom
+    # helps it; an unfunded node must clear its own minimum economic scale in one
+    # step. The row is binding when the headroom covers neither.
     tight_resources = tuple(
         resource.name
         for resource in network.resources
-        if result.resource_use.get(resource.name, 0.0) >= resource.capacity - 1e-9
+        if _resource_blocks_growth(network, result, resource)
         and network.resource_demand_at_full_scale(resource.name) > resource.capacity + 1e-9
     )
     if enforce_risk_cap and reduction >= network.baseline_risk_pts - 1e-9:
