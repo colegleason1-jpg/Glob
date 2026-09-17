@@ -126,11 +126,40 @@ character-count table 5/5 with exact mojibake strings, the lookups table, `r.jso
 `iter_lines` inheritance, the truncation arithmetic, the `VARCHAR(20)` example, the 2.25.1
 `application/json` boundary, and both PyPI endpoint dates.
 
+### urllib3 — **20 defects**, against audit 14's 8
+
+Verified by me directly:
+
+| claim | measured |
+| --- | --- |
+| **a published claim is outright false** | The entry publishes *"2.8.0 is the first release ever to attach a deprecation to `Retry.__init__`."* urllib3 **1.26.20** emits `DeprecationWarning: Using 'method_whitelist' with Retry is deprecated…` from `Retry.__init__`. 1.26.0 shipped 2020-11-10 — **off by 5.8 years**, and it is a deprecation about `method_whitelist`, the exact parameter this entry's third gap concerns. Repeated verbatim in `version-range-sweep.md:94`. |
+| **the check cannot see the defect in the form most people write it** | `check_retry(3)` → `None`. `check_retry(True)` → `None`. `getattr(3, "total", None)` is `None`, so a plain int falls into the "retries are off" branch. On the wire, `retries=3` against a 503 sends **1 request** — precisely this entry's defect, undetected. |
+| an unbounded retry reads as "off" | `Retry(total=None, status_forcelist=[503])` → check returns `None` with the comment *"retries are off; nothing is being promised"*. `is_exhausted()` is **False** with all counts `None`; the verifier measured **501 requests**. The comment states the opposite of the library's behaviour. |
+
+Also reported with evidence: `retry.py` has **33** distinct released contents, not "~20";
+the emitted message is measurably false whenever the server sends `Retry-After`, which
+`respect_retry_after_header=True` honours by default; `allowed_methods=frozenset()` replays
+a POST 4 times with the check silent — the very case urllib3 2.8.0's new warning exists for;
+16 of 84 in-range releases were sampled (19%) with no list of which 16 recorded anywhere;
+and 7 of 19 mutants survive, including **inverting gap 1's message to its exact negation**.
+
+**What survived:** every number in the Measured table — 1 / 1 / 4 / 4 requests, 0.00 s,
+3.00 s — the three-mechanism isolation, the three defaults, the 1.9 floor and its date, the
+2.8.0 ceiling, 12.2 years, both byte counts. "POST was never in the default method set" is
+true across **84 of 84** releases, stronger than the entry claims for itself.
+
 ### Reading it against the registered rule
 
-**packaging 13, requests 16, against audit 14's 8.** Both land in the "more than 8" branch:
-evidence that the production controls help, because the two registered confounds both push
-the other way.
+| entry | process | defects |
+| --- | --- | ---: |
+| `urllib3` | old | **20** |
+| `requests` | old | **16** |
+| `packaging` | old | **13** |
+| `pluggy` (audit 14) | **new** | **8** |
+
+**All three old entries land above audit 14's 8, with no overlap — 13 to 20 against 8.**
+That is the "more than 8" branch of the registered rule, three times over, and the two
+registered confounds both push the other way.
 
 **But an unregistered confound exists and it is named here rather than buried.** The counts
 come from different verifier agents. Both old-entry verifiers ran mutation testing; audit
