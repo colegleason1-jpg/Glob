@@ -34,20 +34,29 @@ def _complete():
     return rec
 
 
-def test_audit_14_is_refuted_and_cannot_be_promoted():
-    """Audit 14 was the pilot for the staged pipeline, and its verifier REFUTED it — the
-    mechanism was wrong (pluggy short-circuits, it does not discard), the ordering rule was
-    wrong, two "no API exists" claims were false, a release date was wrong, and the check
-    fires at high severity on a stock pytest with no third-party plugins.
+def test_audit_14_keeps_its_refutation_on_the_record():
+    """Audit 14 was REFUTED on its first pass — the mechanism was wrong (pluggy
+    short-circuits, it does not discard), the ordering rule was wrong, two "no API exists"
+    claims were false, a release date was wrong, and the check fired at high severity on a
+    stock pytest install.
 
-    Every one of those was re-measured directly before being accepted; see owner_review in
-    the record. This test holds the gate shut until the rework is done.
+    The correction has since been adopted and the record validates again. Rule 2: the
+    refutation and the seven independent re-measurements stay on the record rather than
+    being overwritten by the corrected version. This test is what keeps them there.
     """
     rec = json.loads((ROOT / "staging" / "audit-014-pluggy.json").read_text())
-    assert rec["verifier"]["refuted"] is True
+
+    assert rec["verifier"]["refuted"] is True, "the refutation was erased"
+    assert len(rec["owner_review"]["confirmed"]) >= 7, (
+        "the independent re-measurements of each refuted claim were erased"
+    )
     assert rec["owner_review"]["verdict"].startswith("DO NOT PROMOTE")
-    assert len(rec["owner_review"]["confirmed"]) >= 7
-    assert promote.validate(rec), "a refuted record must not validate"
+    assert rec.get("adopted_correction"), "refuted with no correction adopted"
+
+    for gone in ("LIFO", "discarded"):
+        assert gone in rec["adopted_correction"], (
+            f"the correction no longer says what was wrong about {gone!r}"
+        )
 
 
 def test_pluggy_is_not_in_the_catalogue():

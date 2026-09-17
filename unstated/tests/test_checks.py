@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from unstated import (CATALOGUE, check_certificate_dates, check_dates,
+                      check_hook_precedence, measure_contention,
                       check_detected_encoding,
                       check_domain_encoding, check_merge,
                       check_response_encoding, check_retry,
@@ -738,3 +739,160 @@ def test_every_entry_names_the_versions_it_was_measured_on():
     """A verdict is only as wide as the versions measured."""
     for entry in CATALOGUE:
         assert entry.versions_measured.strip(), f"{entry.library} names no version"
+
+
+# --------------------------------------------------------------------------- #
+# hook precedence
+#
+# The first version of this check had four defects and zero tests. It fired at high
+# severity on a stock pytest install with no third-party plugins, counted wrappers as
+# contestants, and reported a fabricated "answers_discarded_per_call". Half of what
+# follows asserts silence, for exactly that reason.
+# --------------------------------------------------------------------------- #
+
+@pytest.fixture
+def pluggy_pm():
+    """A plugin manager with one first-result hook and one ordinary hook."""
+    import pluggy
+
+    hookspec = pluggy.HookspecMarker("t")
+    hookimpl = pluggy.HookimplMarker("t")
+
+    class Spec:
+        @hookspec(firstresult=True)
+        def resolve(self, sku): ...
+
+        @hookspec
+        def collect(self, sku): ...
+
+    def answering(value, **opts):
+        return type("P", (), {"resolve": hookimpl(**opts)(lambda self, sku, _v=value: _v)})()
+
+    class Observer:
+        @hookimpl(wrapper=True)
+        def resolve(self, sku):
+            return (yield)
+
+    def build(*plugins):
+        pm = pluggy.PluginManager("t")
+        pm.add_hookspecs(Spec)
+        for name, obj in plugins:
+            pm.register(obj, name=name)
+        return pm
+
+    build.answering = answering
+    build.Observer = Observer
+    build.hookimpl = hookimpl
+    return build
+
+
+def test_two_plugins_that_can_both_answer_are_flagged(pluggy_pm):
+    """The finding: which one answers is decided by registration order, and the other is
+    never called at all."""
+    pm = pluggy_pm(("catalogue", pluggy_pm.answering(100)),
+                   ("promotion", pluggy_pm.answering(80)))
+
+    finding = check_hook_precedence(pm)
+    assert finding is not None
+    assert finding.observed["first_result_hooks_contested"] == 1
+    assert finding.observed["call_order_first_wins"] == "promotion > catalogue"
+    assert finding.observed["plugins_that_will_not_run_on_it"] == 1
+    assert pm.hook.resolve(sku="x") == 80
+
+
+def test_reversing_registration_reverses_the_winner(pluggy_pm):
+    """The measurement the entry turns on, as a test rather than a claim."""
+    a = pluggy_pm(("catalogue", pluggy_pm.answering(100)),
+                  ("promotion", pluggy_pm.answering(80)))
+    b = pluggy_pm(("promotion", pluggy_pm.answering(80)),
+                  ("catalogue", pluggy_pm.answering(100)))
+
+    assert a.hook.resolve(sku="x") == 80
+    assert b.hook.resolve(sku="x") == 100
+
+
+def test_trylast_runs_first_registered_first_so_the_rule_is_not_lifo(pluggy_pm):
+    """The original write-up said LIFO. trylast is FIFO — the opposite — which is why the
+    rule had to be restated as buckets."""
+    import pluggy
+
+    order = []
+    hookimpl = pluggy_pm.hookimpl
+
+    def recorder(name, **opts):
+        return type(name, (), {
+            "resolve": hookimpl(**opts)(lambda self, sku, _n=name: order.append(_n) or None)
+        })()
+
+    for opts, expected in [({}, ["C", "B", "A"]),
+                           ({"tryfirst": True}, ["C", "B", "A"]),
+                           ({"trylast": True}, ["A", "B", "C"])]:
+        order.clear()
+        pm = pluggy_pm(*[(n, recorder(n, **opts)) for n in "ABC"])
+        pm.hook.resolve(sku="x")
+        assert order == expected, f"{opts or 'plain'}: got {order}"
+
+
+def test_measure_contention_recovers_what_the_loser_would_have_said(pluggy_pm):
+    """The original claimed no API exposed this. subset_hook_caller does, exactly."""
+    pm = pluggy_pm(("catalogue", pluggy_pm.answering(100)),
+                   ("promotion", pluggy_pm.answering(80)))
+
+    result = measure_contention(pm, "resolve", sku="x")
+    assert result["winner"] == ("promotion", 80)
+    assert result["answers_in_call_order"] == [("promotion", 80), ("catalogue", 100)]
+    assert result["implementations_that_never_ran"] == 1
+    assert result["genuinely_ambiguous"] is True
+
+
+# --- silence -------------------------------------------------------------- #
+
+def test_a_wrapper_does_not_make_a_hook_contested(pluggy_pm):
+    """Defect 1 of the original check. A wrapper cannot answer, so one answering plugin
+    plus a wrapper is not a contest. In stock pytest this alone was two false positives."""
+    pm = pluggy_pm(("only", pluggy_pm.answering(100)),
+                   ("observer", pluggy_pm.Observer()))
+
+    assert check_hook_precedence(pm) is None
+    assert pm.hook.resolve(sku="x") == 100
+
+
+def test_one_plugin_is_not_flagged(pluggy_pm):
+    assert check_hook_precedence(pluggy_pm(("only", pluggy_pm.answering(100)))) is None
+
+
+def test_no_plugins_is_not_flagged(pluggy_pm):
+    assert check_hook_precedence(pluggy_pm()) is None
+
+
+def test_a_non_firstresult_hook_with_many_impls_is_not_flagged(pluggy_pm):
+    """Only first-result hooks discard anything. An ordinary hook returns every answer."""
+    import pluggy
+
+    hookimpl = pluggy_pm.hookimpl
+    collectors = [("p%d" % i, type("C", (), {
+        "collect": hookimpl(lambda self, sku, _v=i: _v)})()) for i in range(5)]
+    pm = pluggy_pm(*collectors)
+
+    assert len(pm.hook.collect(sku="x")) == 5
+    assert check_hook_precedence(pm) is None
+
+
+def test_an_object_with_no_hook_relay_is_not_flagged():
+    assert check_hook_precedence(object()) is None
+    assert check_hook_precedence(None) is None
+
+
+def test_a_relay_attribute_that_raises_does_not_crash_the_check():
+    """The original caught only AttributeError and TypeError, so a relay that raised
+    anything else took the check down with it."""
+    class Hostile:
+        def __getattr__(self, name):
+            if name.startswith("_"):
+                raise AttributeError(name)
+            raise RuntimeError("no")
+
+    class PM:
+        hook = Hostile()
+
+    assert check_hook_precedence(PM()) is None

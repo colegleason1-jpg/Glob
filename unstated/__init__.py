@@ -55,6 +55,7 @@ from .checks.retries import check_retry
 from .checks.encoding import check_response_encoding
 from .checks.detection import check_detected_encoding
 from .checks.certdates import check_certificate_dates
+from .checks.hooks import check_hook_precedence, measure_contention
 
-__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split", "check_paginated", "check_specifier", "check_domain_encoding", "check_retry", "check_response_encoding", "check_detected_encoding", "check_certificate_dates"]
+__all__ = ["Finding", "CATALOGUE", "CatalogueEntry", "check_dates", "check_merge", "check_split", "check_paginated", "check_specifier", "check_domain_encoding", "check_retry", "check_response_encoding", "check_detected_encoding", "check_certificate_dates", "check_hook_precedence", "measure_contention"]
 __version__ = "0.1.0"

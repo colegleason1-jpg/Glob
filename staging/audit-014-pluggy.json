@@ -98,31 +98,55 @@
     {
       "what": "an exception in one hookimpl",
       "result": "raises ValueError to the caller; the working plugin's answer of 100 is not returned. LOUD, not a finding."
+    },
+    {
+      "what": "instrumented both impls to record entry",
+      "result": "registering catalogue,promotion gives value=80 and implementations_that_ran=['promotion'] \u2014 1 of 2. The loser's body never executes."
+    },
+    {
+      "what": "ordering rule across marker classes",
+      "result": "all-plain A,B,C -> C,B,A; all-tryfirst A,B,C -> C,B,A; all-trylast A,B,C -> A,B,C. 1 of 3 marker classes is FIFO, so LIFO is not the rule."
+    },
+    {
+      "what": "does any API expose the contention",
+      "result": "3 of 3 do: get_hookimpls()+spec.opts identifies it, add_hookcall_monitoring passes the full 2-impl list to both callbacks, subset_hook_caller(remove_plugins=[winner]) returns 100 \u2014 the loser's answer."
+    },
+    {
+      "what": "stock pytest 9.1.1 baseline",
+      "result": "9 of 17 first-result hookspecs already have >1 answering implementation with 0 third-party plugins; 17 of 52 hookspecs are firstresult (16 of 52 at pytest 7.4.4)."
+    },
+    {
+      "what": "does one unrelated plugin change the decider",
+      "result": "yes \u2014 registering pytest-subtests changed the deciding implementation on 3 of 3 hooks it joined, 0 warnings. A first probe using pytest-timeout/xdist/cov showed 0 of 3, but xdist and cov never loaded \u2014 that was a broken probe, not a negative."
+    },
+    {
+      "what": "falsy values versus None",
+      "result": "the test is `is not None`: [None,0] returns 0, [None,False] returns False, [None,''] returns '', each running 1 of 2 impls; [None,None] returns None having run 2 of 2."
     }
   ],
   "hypothesis_outcomes": [
     {
       "id": "H1",
-      "outcome": "reproduced",
-      "evidence": "returned 80, discarded 100, 0 warnings"
+      "outcome": "reproduced with a corrected mechanism",
+      "evidence": "only 1 of 2 impls ran; nothing is discarded because nothing else is computed"
     },
     {
       "id": "H2",
-      "outcome": "reproduced",
-      "evidence": "80 vs 100 purely by reversing registration order at all 7 versions"
+      "outcome": "refuted as stated",
+      "evidence": "all-trylast runs FIFO (A,B,C); LIFO holds within a bucket only"
     },
     {
       "id": "H3",
       "outcome": "reproduced",
-      "evidence": "both tryfirst: A-then-B -> 'B', B-then-A -> 'A'"
+      "evidence": "2 of 2 orderings flipped the winner with both impls marked tryfirst"
     },
     {
       "id": "H4",
       "outcome": "LOUD",
-      "evidence": "raises ValueError to the caller \u2014 the library tells you. Recorded, not catalogued."
+      "evidence": "raises ValueError to the caller"
     }
   ],
-  "proposed_verdict": "REFUTED-PENDING-REWORK",
+  "proposed_verdict": "FINDING",
   "verifier": {
     "refuted": true,
     "reason": "Central phenomenon real and broader than claimed, but the stated MECHANISM is wrong, the ordering rule is wrong, two 'no API exists' claims are false, one release date is wrong, and the check fires HIGH on stock pytest with zero third-party plugins.",
@@ -131,22 +155,22 @@
   "proposed_entry": {
     "library": "pluggy",
     "component": "firstresult hookspecs",
-    "versions_measured": "0.6.0, 0.13.1, 1.0.0, 1.2.0, 1.4.0, 1.5.0, 1.6.0",
-    "affected_versions": "order-dependent at all 7 releases measured, from 0.6.0 (2018-04-15) through 1.6.0 (2025-05-15, current latest) \u2014 7.1 years, sampled rather than exhaustive",
+    "versions_measured": "all 17 releases from 0.6.0 through 1.6.0, plus 0.3.0 and 0.4.0",
+    "affected_versions": "order-dependent at all 17 releases from 0.6.0 (2017-11-24) through 1.6.0 (2025-05-15, current latest) \u2014 7.5 years, exhaustive over the span. 0.6.0 is the earliest measured, not the onset: 0.3.0 (2015-05-07) and 0.4.0 reproduce identically, and 0.5.0-0.5.2 cannot run on Python 3.11 so are untestable rather than unaffected",
     "resolved_in": "not resolved \u2014 documented and by design; tryfirst/trylast exist to influence the order but do not break ties",
-    "assumption": "at most one registered plugin answers a first-result hook, so which one answers does not need to be decided",
-    "cost_when_violated": "With two plugins answering the same firstresult hook, the value returned flips from 80 to 100 purely by reversing registration order \u2014 pluggy calls implementations LIFO, so the plugin imported last wins. 0 warnings and 0 exceptions at every one of 7 releases spanning 2018-2025. Two implementations both marked tryfirst still fall back to registration order. Nothing exposes the discarded answers: the return value is a bare int, get_hookimpls() lists implementations but not results, and add_hookcall_monitoring reports only the winner. 17 of 52 pytest hookspecs (33%) are firstresult, including pytest_fixture_setup and pytest_ignore_collect.",
-    "upstream_status": "documented and by design. The gap is not that the rule is hidden \u2014 it is that a contested hook is indistinguishable from an uncontested one at the point the value is used, and pluggy exposes no way to ask.",
+    "assumption": "the caller knows which registered plugin answers a first-result hook, and that the others were considered",
+    "cost_when_violated": "With two plugins able to answer the same firstresult hook, the value returned flips from 80 to 100 purely by reversing registration order, with 0 warnings and 0 exceptions at all 17 releases across 7.5 years. Only ONE implementation ever runs \u2014 _multicall breaks at the first non-None \u2014 so the losers' answers are never computed and their side effects never happen. Order is decided by six buckets (tryfirst > plain > trylast, wrappers first within each) and by registration order WITHIN a bucket only: trylast runs FIFO, the opposite of the rest. Two implementations both marked tryfirst still flip with order, 2 of 2 orderings. Contested hooks are normal \u2014 9 of 17 first-result hookspecs on stock pytest 9.1.1 have more than one answering implementation, and 17 of 52 hookspecs are firstresult (16 of 52 at pytest 7.4.4). Registering one unrelated third-party plugin (pytest-subtests) changed the deciding implementation on 3 of 3 hooks it joined, 0 warnings.",
+    "upstream_status": "documented and by design; the bucket order is stated in pluggy's own source. The gap is that a contested hook looks exactly like an uncontested one at the point the value is used. The contention is recoverable afterwards via get_hookimpls(), add_hookcall_monitoring and subset_hook_caller \u2014 nothing prompts anyone to ask.",
     "evidence": "docs/cold-test-pluggy.md",
-    "span_years": 7.1,
+    "span_years": 7.5,
     "resolution": "open",
     "resolved_version": null,
     "check": "check_hook_precedence",
     "impact": {
-      "believed_claim": "My plugin decides this.",
-      "actual_claim": "One of the plugins decides this, and which one is whichever was imported last. Measured: with two plugins answering, the value flips from 80 to 100 by reversing registration order, 0 warnings.",
-      "breaks": "Whatever the hook was deciding, differently per installation. A plugin architecture exists so behaviour can be extended \u2014 a price resolved, a route chosen, a record classified. When two extensions both answer, one silently loses, and which one depends on what else is installed and in what order. The same application, same code, same inputs gives a different answer on a machine where one extra plugin is present. The returned value carries no provenance, so the answer cannot be traced even after someone notices it changed.",
-      "detection": "Very poor, and it fails in the direction that looks like success. No exception, no warning, no API reporting a contested hook. A single-plugin development environment behaves correctly and deterministically; the ambiguity appears only once a second plugin answering the same hook is installed, which is exactly when nobody is looking at that hook. Adding an unrelated plugin can change an answer elsewhere in the system."
+      "believed_claim": "My plugin decides this, and the others were considered.",
+      "actual_claim": "One implementation decides it and the rest never run. Which one is decided by bucket order, then registration order within a bucket \u2014 a property of what happens to be installed. Measured: the value flips 80 to 100 by reversing registration, and one unrelated third-party plugin changed the decider on 3 of 3 hooks it joined.",
+      "breaks": "Whatever the hook decides, differently per installation \u2014 and the losers' SIDE EFFECTS do not happen either. A plugin architecture exists so behaviour can be extended: a price resolved, a route chosen, a record classified. When two extensions can both answer, one is never invoked at all, so a plugin that was also supposed to log, count or cache as a side effect of answering silently does none of it. The same application, same code, same inputs behaves differently on a machine where one extra plugin is installed, and the returned value carries nothing saying who produced it.",
+      "detection": "Poor at the point of use, recoverable afterwards. No exception, no warning, and the value has no provenance. It is not undiscoverable \u2014 get_hookimpls(), add_hookcall_monitoring and subset_hook_caller all expose the contention \u2014 but nothing prompts anyone to ask, and a contested hook is indistinguishable from an uncontested one until someone does."
     }
   },
   "owner_review": {
@@ -163,5 +187,6 @@
     ],
     "not_adopted": [],
     "verdict": "DO NOT PROMOTE. The finding is real; the write-up and the check are not fit to publish."
-  }
+  },
+  "adopted_correction": "Adopted in full and re-measured. Mechanism corrected from 'discards' to 'never calls' \u2014 _multicall breaks at the first non-None, so the losers' bodies and SIDE EFFECTS never run. Ordering corrected from LIFO to the six-bucket rule with registration order breaking ties within a bucket only (trylast is FIFO). Both 'no API exposes it' claims deleted; get_hookimpls()+spec.opts, add_hookcall_monitoring and subset_hook_caller all expose it, and measure_contention() now uses the last of these. 0.6.0 date corrected to 2017-11-24 and span to 7.5 years; range widened to all 17 releases (exhaustive) with 0.6.0 marked earliest-measured rather than onset. pytest count qualified by version (17/52 at 9.1.1, 16/52 at 7.4.4). Contested-is-normal stated explicitly (9 of 17 on stock pytest). The 'unrelated plugin changes an answer' claim was MEASURED rather than removed: registering pytest-subtests changed the deciding implementation on 3 of 3 hooks it joined, 0 warnings \u2014 and the first probe of it (timeout/xdist/cov) was broken, which is recorded too. Check rebuilt: wrappers filtered, fabricated answers_discarded_per_call replaced with plugins_that_will_not_run_on_it, severity medium, stock pytest 11-at-high -> 9-at-medium."
 }
