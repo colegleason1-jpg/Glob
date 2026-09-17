@@ -163,6 +163,14 @@ The remedy moves the error to the other half of the column and leaves the total 
 unchanged. The `dayfirst` docstring scopes the flag to *"an ambiguous 3-integer date"*;
 `2023-01-02` is not one, and neither `dayfirst` nor `parse()` mentions ISO anywhere.
 
+**This is not a discovery.** The ISO/European conflict is a known open issue on dateutil's
+own tracker ([dateutil#402](https://github.com/dateutil/dateutil/issues/402), filed 2017).
+What was not published is the magnitude, the fact that 95% of the "correct" rows are
+correct only by accident, and a three-line check that detects it in 90 ms. That a defect
+has been filed upstream for years and still produces silent 37% error rates — with no
+warning in the docstring and no signal at the call site — is the argument for a catalogue,
+not against one.
+
 Full record: [`docs/cold-test-dateutil.md`](docs/cold-test-dateutil.md).
 
 ### Why this belongs in this repository

@@ -32,6 +32,29 @@ month-first and 1,197 read day-first**, every value a valid datetime.
 When wrong, the median error is 118 days — and every wrong value is a valid date in the
 same year, so a range check, a dtype check and a null check all pass.
 
+## Correction: finding 2 is already filed upstream
+
+Checked after writing, which is the wrong order and is recorded here for that reason.
+The ISO/European conflict is **a known, open issue on dateutil's own tracker** —
+[dateutil#402, "It's impossible to parse ISO-style and European-style dates at the same
+time"](https://github.com/dateutil/dateutil/issues/402). Nothing below is a discovery.
+
+What is not in that issue, and is the part worth keeping:
+
+* the **magnitude** — 37.2% of a day-first column silently wrong, and the remedy leaving
+  the total essentially unchanged at 376 → 369
+* the observation that **95% of the "correct" rows are correct only by accident**, because
+  a day above 12 forced the inference
+* that a single column comes back under **two conventions at once**
+* a three-line check that detects it in 90 ms
+
+And the sharper point for anything built on top of this: the behaviour has been **known
+and filed since 2017 and still produces silent 37% error rates today**, with no warning in
+the docstring and no signal at the call site. A defect being known upstream is not the
+same as a caller being told. That gap — between what is filed and what reaches the person
+running the code — is the whole case for a catalogue, and this finding is evidence for it
+rather than against it.
+
 ## Finding 2 — the documented remedy breaks ISO 8601
 
 `dayfirst=True` fixes the slashes. It also reorders ISO dates, which are unambiguous by
