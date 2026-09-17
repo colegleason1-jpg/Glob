@@ -58,13 +58,20 @@ test or document section; changing a published verdict, number or claim; `git rm
 force-push, history rewrite, branch reset; overwriting a document where content is lost;
 narrowing agreed scope. Approval in one context does not carry to the next.
 
-### 6. Report what changed, removals first
+### 6. Report what changed, removals first — from `tools/state.py`, not from memory
 
-End every substantive turn with what was added, changed and **removed** — removals named
-explicitly and first. The owner should never discover a removal by reading a diff.
+**Run `python tools/state.py --since <the ref you started from>` and paste its output.**
+Do not retype its numbers and do not summarise it in place of showing it. It reads the
+catalogue, the ledger, the tests and `git` and prints what exists and exactly what changed,
+with a banner if any finding disappeared. A prose summary can be wrong by accident or by
+motivated reasoning; this cannot.
 
-Say when something was a judgement call, and give the alternative. Say when something is
-weaker than it sounds, in the same sentence, not a later paragraph.
+Then say what the output means, and separately: when something was a judgement call, with
+the alternative; when something is weaker than it sounds, in the same sentence, not a later
+paragraph.
+
+The owner should never discover a removal by reading a diff. On 2026-09-17 he discovered
+one by reading a prose summary, which is why this rule now names a command.
 
 ### 7. A doubt about the work is a hypothesis, not a conclusion
 

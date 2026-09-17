@@ -113,6 +113,7 @@ MANDATORY_RULES = [
     "Test a new exclusion rule against every existing entry",
     "Measure before concluding",
     "Destructive operations need explicit approval",
+    "Report what changed, removals first",
     "A doubt about the work is a hypothesis, not a conclusion",
 ]
 
@@ -186,3 +187,24 @@ def test_the_anti_reframing_rule_names_what_it_bans():
             f"{path.name} does not ban the excuse that was actually used — claiming the "
             "rules did not cover something without reading them"
         )
+
+
+def test_the_state_tool_runs_and_reports_ground_truth():
+    """Rule 6 names a command, so the command has to work. This runs it for real rather
+    than asserting the file exists."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "state.py")],
+        capture_output=True, text=True, cwd=ROOT, timeout=300,
+    )
+    assert result.returncode == 0, (
+        f"tools/state.py reported a problem with the repository:\n{result.stdout}"
+    )
+    out = result.stdout
+    assert f"FINDINGS — {len(CATALOGUE)}" in out, "state.py miscounts the catalogue"
+    assert "VANISHED WITHOUT A WITHDRAWAL                0" in out
+    assert f"HELD OPEN — {len(HELD_OPEN)}" in out
+    for entry in CATALOGUE:
+        assert entry.library in out, f"{entry.library} is missing from the state report"

@@ -122,15 +122,34 @@ Ask **before**, not after, and treat the following as destructive on this reposi
 
 Approval in one context does not carry to the next. Being confident is not approval.
 
-### 6. Report what changed, in a form that can be audited
+### 6. Report what changed, removals first — from `tools/state.py`, not from memory
 
-Every substantive turn ends with what was **added, changed, and removed** — removals named
-explicitly and first. The owner should never have to read a diff to discover that something
-was taken out.
+**Run it, do not write it:**
 
-Where a judgement call was made, say it was a judgement call and give the alternative.
-Where something is weaker than it sounds, say so in the same sentence, not in a later
+    python tools/state.py --since <ref>
+
+Paste the output. It reads `CATALOGUE`, `_manifest.py`, the test suite, the filesystem and
+`git`, and prints: every finding with its measured span and status, ledger integrity,
+held-open items awaiting a decision, test count, uncommitted work, and — with `--since` —
+exactly what changed, including a banner naming any finding that disappeared.
+
+Every number in it is computed. None is typed. That is the whole point: the three incidents
+on this repository all reached the owner through **prose describing the repo**, never
+through the repo itself, and prose is where the distortion lives. The generated numbers
+close that route.
+
+Verified against the real incident rather than assumed: deleting the `cryptography` entry
+prints the removal banner; deleting it *and* scrubbing its ledger row prints two lines, the
+second reading `GONE FROM LEDGER ... <-- the record itself`. Covering the tracks is more
+visible, not less.
+
+Then, in prose: what the output means, which calls were judgement calls and what the
+alternative was, and anything weaker than it sounds — in the same sentence, not a later
 paragraph.
+
+The owner should never have to read a diff to discover that something was taken out. On
+2026-09-17 he discovered a deletion by reading a prose summary, which is why this rule now
+names a command.
 
 ### 7. A doubt about the work is a hypothesis, not a conclusion
 
@@ -185,10 +204,12 @@ repository it has done more harm than any bug.
 | this document exists and states every rule | all | `test_process.py` |
 | `CLAUDE.md` carries the rules inline so they load every session | all | `test_process.py` |
 | the anti-reframing rule is stated in both files | 7 | `test_process.py` |
+| `tools/state.py` runs and reports ground truth | 6 | `test_process.py` |
 | the README table cannot drift from the catalogue | 6 | `test_checks.py` |
 | every entry names the versions it was measured on | 4 | `test_checks.py` |
 
-The rest — rules 2, 5, 6 and 7 — cannot be tested. They are in `CLAUDE.md`, which loads into
+The rest — rules 2, 5 and 7 — cannot be tested. Rule 6 is now half-mechanical: the
+tool it names is tested, though nothing forces it to be run. They are in `CLAUDE.md`, which loads into
 every session and every subagent without anyone having to ask for it. That is the only
 reason to believe they will be followed at all, and it is why the rules live there rather
 than only here.
